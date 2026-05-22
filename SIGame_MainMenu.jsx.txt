@@ -1,0 +1,352 @@
+import { useState, useEffect } from "react";
+
+// ========================================
+// SVG Ikonkalar — lucide-react o'rniga oddiy SVG
+// ========================================
+
+// Musiqa notasi ikonkasi (Treble Clef)
+const MusicNoteIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-yellow-300">
+    <path d="M9 17H5a2 2 0 0 0 0 4h2v2h2v-2a2 2 0 0 0 0-4zM19 3l-6 6.72V16a4 4 0 1 0 2 3.46V12.28L21 5.5 19 3zM15 20a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+  </svg>
+);
+
+// Bitiruvchi bosh kiyimi ikonkasi (Academic Cap)
+const GraduationCapIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-yellow-300">
+    <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+  </svg>
+);
+
+// ========================================
+// Menyu tugmalari ma'lumotlari
+// ========================================
+const menuItems = [
+  { id: 1, label: "ONLAYN O'YIN",         icon: "🌐" },
+  { id: 2, label: "YAKKALIK O'YIN",        icon: "🎮" },
+  { id: 3, label: "PIN-KOD ORQALI KIRISH", icon: "🔑" },
+  { id: 4, label: "QANDAY O'YNAYMAN?",     icon: "❓" },
+  { id: 5, label: "SAVOL MUHARRIRI",       icon: "✏️" },
+];
+
+// ========================================
+// Logotip katakchasi komponenti
+// ========================================
+const LogoCell = ({ children, className = "" }) => (
+  <div
+    className={`
+      border-2 border-white/70
+      flex items-center justify-center
+      font-black tracking-widest
+      ${className}
+    `}
+  >
+    {children}
+  </div>
+);
+
+// ========================================
+// Asosiy Menyu Sahifasi
+// ========================================
+export default function SIGameMainMenu() {
+  // Har bir tugma uchun hover holatini saqlaymiz
+  const [hoveredId, setHoveredId] = useState(null);
+  // Sahifa yuklanganda animatsiya uchun
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    // Sahifa yuklangandan so'ng animatsiyani ishga tushiramiz
+    const timer = setTimeout(() => setLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    /*
+     * Asosiy konteyner:
+     * - To'liq ekran balandligi (min-h-screen)
+     * - To'q ko'k gradientli fon
+     * - Barcha elementlarni markazga joylash
+     */
+    <div
+      className="
+        min-h-screen w-full
+        flex flex-col items-center justify-center
+        relative overflow-hidden
+        px-4 py-10
+      "
+      style={{
+        /* To'q ko'k gradientli fon */
+        background: "linear-gradient(135deg, #0a0f2e 0%, #0d1b4b 40%, #0a2a6e 70%, #0c1f5a 100%)",
+      }}
+    >
+      {/* ── Fon dekorativ elementlari ── */}
+      <BackgroundDecorations />
+
+      {/*
+       * Kontent bloki:
+       * - loaded holati bo'yicha yuqoridan pastga siljish animatsiyasi
+       */}
+      <div
+        className="
+          relative z-10
+          flex flex-col items-center
+          w-full max-w-xl
+          gap-10
+        "
+        style={{
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? "translateY(0)" : "translateY(-30px)",
+          transition: "opacity 0.7s ease, transform 0.7s ease",
+        }}
+      >
+        {/* ── Logotip qismi ── */}
+        <LogoSection />
+
+        {/* ── Menyu tugmalari ── */}
+        <nav className="flex flex-col items-center w-full gap-3">
+          {menuItems.map((item, index) => (
+            <MenuButton
+              key={item.id}
+              item={item}
+              index={index}
+              isHovered={hoveredId === item.id}
+              onMouseEnter={() => setHoveredId(item.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              loaded={loaded}
+            />
+          ))}
+        </nav>
+
+        {/* ── Pastki qism: versiya ── */}
+        <p className="text-white/30 text-xs tracking-widest mt-2">
+          v1.0.0 · SIGame Uzbek Edition
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ========================================
+// Logotip komponenti
+// ========================================
+function LogoSection() {
+  return (
+    <div className="flex flex-col items-center gap-4">
+      {/*
+       * Katakchali logotip:
+       * "SI" va "GAME" so'zlarini alohida-alohida katakchalar ichiga joylashtiramiz
+       */}
+      <div className="flex flex-row items-start gap-1">
+
+        {/* "SI" bloki — musiqa notasi bilan */}
+        <div className="flex flex-col items-center gap-1">
+          {/* Musiqa notasi ikonkasi (SI ustida) */}
+          <div className="flex justify-start w-full pl-1">
+            <MusicNoteIcon />
+          </div>
+          {/* SI harflari */}
+          <div className="flex gap-1">
+            {["S", "I"].map((letter) => (
+              <LogoCell
+                key={letter}
+                className="
+                  w-14 h-14 sm:w-16 sm:h-16
+                  text-white text-3xl sm:text-4xl
+                  bg-white/10
+                  backdrop-blur-sm
+                "
+              >
+                {letter}
+              </LogoCell>
+            ))}
+          </div>
+        </div>
+
+        {/* Bo'shliq ajratuvchi */}
+        <div className="w-2" />
+
+        {/* "GAME" bloki — akademik bosh kiyim bilan */}
+        <div className="flex flex-col items-center gap-1">
+          {/* Akademik bosh kiyim ikonkasi (GAME ustida) */}
+          <div className="flex justify-end w-full pr-1">
+            <GraduationCapIcon />
+          </div>
+          {/* GAME harflari */}
+          <div className="flex gap-1">
+            {["G", "A", "M", "E"].map((letter) => (
+              <LogoCell
+                key={letter}
+                className="
+                  w-10 h-10 sm:w-12 sm:h-12
+                  text-white text-xl sm:text-2xl
+                  bg-white/10
+                  backdrop-blur-sm
+                "
+              >
+                {letter}
+              </LogoCell>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Logotip ostidagi tavsif matni */}
+      <p
+        className="
+          text-white/60 text-sm tracking-[0.3em] uppercase
+          font-light text-center
+        "
+      >
+        Intellektual Viktorina
+      </p>
+    </div>
+  );
+}
+
+// ========================================
+// Menyu tugmasi komponenti
+// ========================================
+function MenuButton({ item, index, isHovered, onMouseEnter, onMouseLeave, loaded }) {
+  return (
+    /*
+     * Tugma animatsiyasi:
+     * - Har bir tugma ketma-ket (staggered) chiqadi
+     * - Hover holatida yorqinlashadi va biroz kattalashadi
+     */
+    <button
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        /* Ketma-ket paydo bo'lish animatsiyasi */
+        opacity: loaded ? 1 : 0,
+        transform: loaded
+          ? isHovered
+            ? "scale(1.04) translateX(4px)"
+            : "scale(1) translateX(0)"
+          : "translateX(-40px)",
+        transition: `
+          opacity 0.5s ease ${index * 0.08}s,
+          transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)
+        `,
+        /* Shaffofroq ko'k fon (semi-transparent) */
+        background: isHovered
+          ? "rgba(255, 255, 255, 0.18)"
+          : "rgba(255, 255, 255, 0.07)",
+        boxShadow: isHovered
+          ? "0 0 30px rgba(100, 180, 255, 0.35), inset 0 0 20px rgba(255,255,255,0.05)"
+          : "0 2px 10px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.02)",
+        borderColor: isHovered ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+      }}
+      className="
+        w-full max-w-md
+        flex items-center gap-4
+        px-6 py-4
+        rounded-xl border
+        backdrop-blur-md
+        cursor-pointer
+        text-left
+        group
+      "
+    >
+      {/* Emoji ikonka */}
+      <span
+        className="text-xl"
+        style={{
+          transform: isHovered ? "scale(1.2) rotate(-5deg)" : "scale(1) rotate(0deg)",
+          transition: "transform 0.3s ease",
+          display: "inline-block",
+        }}
+      >
+        {item.icon}
+      </span>
+
+      {/* Tugma matni */}
+      <span
+        className="
+          text-white font-bold tracking-widest text-sm sm:text-base
+          uppercase flex-1
+        "
+        style={{
+          textShadow: isHovered ? "0 0 20px rgba(150, 210, 255, 0.8)" : "none",
+          letterSpacing: "0.15em",
+        }}
+      >
+        {item.label}
+      </span>
+
+      {/* O'ng taraf strelkasi */}
+      <span
+        className="text-white/40"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          transform: isHovered ? "translateX(0)" : "translateX(-8px)",
+          transition: "all 0.3s ease",
+          color: "rgba(150, 210, 255, 0.9)",
+        }}
+      >
+        ▶
+      </span>
+    </button>
+  );
+}
+
+// ========================================
+// Fon dekorativ elementlari
+// ========================================
+function BackgroundDecorations() {
+  return (
+    <>
+      {/* Yuqori chap doira */}
+      <div
+        className="absolute top-[-80px] left-[-80px] w-64 h-64 rounded-full pointer-events-none"
+        style={{
+          background: "radial-gradient(circle, rgba(30, 80, 200, 0.4) 0%, transparent 70%)",
+          filter: "blur(40px)",
+        }}
+      />
+
+      {/* Pastki o'ng doira */}
+      <div
+        className="absolute bottom-[-60px] right-[-60px] w-72 h-72 rounded-full pointer-events-none"
+        style={{
+          background: "radial-gradient(circle, rgba(0, 120, 255, 0.3) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }}
+      />
+
+      {/* Markaziy yumshoq yorug'lik */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{
+          background: "radial-gradient(circle, rgba(20, 60, 150, 0.2) 0%, transparent 70%)",
+          filter: "blur(80px)",
+        }}
+      />
+
+      {/* Yulduzchalar — mayda nuqtalar */}
+      {[...Array(20)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full bg-white pointer-events-none"
+          style={{
+            width: Math.random() * 2 + 1 + "px",
+            height: Math.random() * 2 + 1 + "px",
+            top: Math.random() * 100 + "%",
+            left: Math.random() * 100 + "%",
+            opacity: Math.random() * 0.4 + 0.1,
+            animation: `pulse ${Math.random() * 3 + 2}s ease-in-out infinite alternate`,
+            animationDelay: Math.random() * 2 + "s",
+          }}
+        />
+      ))}
+
+      {/* Animatsiya uchun style tegi */}
+      <style>{`
+        @keyframes pulse {
+          from { opacity: 0.1; transform: scale(1); }
+          to   { opacity: 0.6; transform: scale(1.5); }
+        }
+      `}</style>
+    </>
+  );
+}

@@ -1,0 +1,622 @@
+import { useEffect, useState, useCallback, useRef } from "react";
+
+const css = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; background: #071028; }
+
+  .si-root {
+    min-height: 100vh; padding: 24px; color: #fff;
+    background: linear-gradient(135deg, #071028 0%, #0c1f4d 50%, #071028 100%);
+  }
+
+  /* ---- HEADER ---- */
+  .si-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
+  .si-title { font-size: 48px; font-weight: 900; letter-spacing: 0.25em; color: #67e8f9; }
+  .si-subtitle { color: rgba(255,255,255,0.4); margin-top: 6px; letter-spacing: 0.2em; font-size: 13px; }
+
+  /* ---- BUTTONS & CARDS ---- */
+  @keyframes pulseGlow {
+    0%,100% { box-shadow: 0 0 25px rgba(59,130,246,0.35); }
+    50%      { box-shadow: 0 0 50px rgba(59,130,246,0.65); }
+  }
+  .si-btn-open {
+    padding: 16px 32px; border-radius: 16px; background: rgba(37,99,235,0.8);
+    color: #fff; font-size: 15px; font-weight: 900; letter-spacing: 0.12em; border: none;
+    cursor: pointer; animation: pulseGlow 2s infinite; transition: background 0.2s;
+  }
+  .si-btn-open:hover { background: #3b82f6; }
+
+  .si-players { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+  .si-player-card {
+    border-radius: 24px; padding: 24px; border: 1px solid rgba(103,232,249,0.2);
+    background: rgba(255,255,255,0.05); backdrop-filter: blur(16px); transition: transform 0.15s;
+  }
+  .si-player-card.active-player { border-color: rgba(103,232,249,0.6); box-shadow: 0 0 20px rgba(103,232,249,0.25); }
+  .si-player-name { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
+  .si-player-score { font-size: 44px; font-weight: 900; color: #fde047; }
+  .si-player-score.negative { color: #f87171; }
+
+  /* ---- MODAL OVERLAY ---- */
+  .si-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .si-modal {
+    width: 100%; max-width: 880px; border-radius: 32px; border: 1px solid rgba(103,232,249,0.2);
+    background: rgba(8,20,47,0.95); padding: 32px; box-shadow: 0 0 60px rgba(59,130,246,0.35);
+    max-height: 90vh; overflow-y: auto;
+  }
+
+  /* ---- QUESTION BOX ---- */
+  .si-question-box {
+    border-radius: 24px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    padding: 32px; text-align: center; font-size: 26px; font-weight: 700; line-height: 1.55; margin-bottom: 32px;
+  }
+  .si-price-badge {
+    display: inline-block; margin-top: 14px; padding: 4px 18px; border-radius: 999px;
+    background: rgba(253,224,71,0.15); color: #fde047; font-size: 15px; font-weight: 900; letter-spacing: 0.1em;
+  }
+
+  /* ---- BUZZER & NOTICE ---- */
+  .si-buzzer-wrap { display: flex; justify-content: center; margin-bottom: 32px; }
+  @keyframes buzzPulse { 0%,100% { box-shadow: 0 0 50px rgba(239,68,68,0.7); } 50% { box-shadow: 0 0 80px rgba(239,68,68,1); } }
+  .si-buzzer {
+    width: 200px; height: 200px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #991b1b);
+    color: #fff; font-size: 26px; font-weight: 900; letter-spacing: 0.15em; border: none; cursor: pointer;
+    animation: buzzPulse 1.5s infinite; transition: transform 0.15s;
+  }
+  .si-buzzer:hover:not(:disabled) { transform: scale(1.06); }
+  .si-buzzer:disabled { background: linear-gradient(135deg, #6b7280, #374151); animation: none; box-shadow: none; cursor: not-allowed; }
+
+  .si-buzzed-notice {
+    text-align: center; margin-bottom: 24px; padding: 16px 24px; border-radius: 16px;
+    background: rgba(103,232,249,0.08); border: 1px solid rgba(103,232,249,0.25);
+    color: #67e8f9; font-weight: 700; font-size: 18px; letter-spacing: 0.08em;
+  }
+
+  /* ---- ANSWER INPUT ---- */
+  @keyframes sendPulse { 0%,100% { box-shadow: 0 0 20px rgba(16,185,129,0.5), 0 0 40px rgba(6,182,212,0.3); } 50% { box-shadow: 0 0 35px rgba(16,185,129,0.85), 0 0 65px rgba(6,182,212,0.6); } }
+  .si-answer-row { display: flex; flex-direction: row; gap: 12px; align-items: center; flex-wrap: nowrap; }
+  .si-answer-input {
+    flex: 1; min-width: 0; border-radius: 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(103,232,249,0.3);
+    padding: 16px 20px; color: #fff; font-size: 17px; outline: none; transition: border-color 0.2s, background 0.2s;
+  }
+  .si-answer-input::placeholder { color: rgba(255,255,255,0.35); }
+  .si-answer-input:focus { border-color: rgba(103,232,249,0.7); background: rgba(255,255,255,0.14); }
+  .si-answer-input:disabled { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+
+  .si-btn-send {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 16px 26px; border-radius: 16px;
+    background: linear-gradient(135deg, #06b6d4 0%, #10b981 100%); color: #fff; font-size: 15px; font-weight: 900;
+    letter-spacing: 0.12em; border: none; cursor: pointer; animation: sendPulse 1.8s infinite;
+    transition: transform 0.15s, opacity 0.2s; white-space: nowrap;
+  }
+  .si-btn-send:hover:not(:disabled) { transform: scale(1.05); }
+  .si-btn-send:disabled { background: linear-gradient(135deg, #374151, #4b5563); animation: none; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
+
+  /* ---- HOST PANEL ---- */
+  .si-host-panel { margin-top: 32px; border-radius: 24px; background: rgba(255,255,255,0.05); border: 1px solid rgba(253,224,71,0.2); padding: 28px; }
+  .si-host-label { color: #fde047; text-transform: uppercase; letter-spacing: 0.3em; font-size: 12px; margin-bottom: 8px; }
+  .si-host-player { font-size: 28px; font-weight: 900; margin-bottom: 16px; }
+  .si-host-answer { border-radius: 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 18px 20px; font-size: 20px; margin-bottom: 24px; }
+  .si-decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .si-btn-correct { padding: 20px; border-radius: 16px; background: linear-gradient(135deg, #166534, #10b981); color: #fff; font-size: 20px; font-weight: 900; letter-spacing: 0.15em; border: none; cursor: pointer; box-shadow: 0 0 35px rgba(34,197,94,0.45); transition: transform 0.15s; }
+  .si-btn-correct:hover { transform: scale(1.02); }
+  .si-btn-wrong { padding: 20px; border-radius: 16px; background: linear-gradient(135deg, #991b1b, #ef4444); color: #fff; font-size: 20px; font-weight: 900; letter-spacing: 0.15em; border: none; cursor: pointer; box-shadow: 0 0 35px rgba(239,68,68,0.45); transition: transform 0.15s; }
+  .si-btn-wrong:hover { transform: scale(1.02); }
+
+  .si-btn-close {
+    display: block; margin: 24px auto 0; padding: 12px 28px; border-radius: 12px; background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.1em; cursor: pointer; transition: background 0.2s;
+  }
+  .si-btn-close:hover { background: rgba(255,255,255,0.13); color: #fff; }
+
+  /* ---- APELLATSIYA STILLARI ---- */
+  @keyframes neonFlash {
+    0%, 100% { border-color: rgba(239,68,68,0.4); box-shadow: 0 0 20px rgba(239,68,68,0.2); }
+    50% { border-color: rgba(249,115,22,1); box-shadow: 0 0 40px rgba(249,115,22,0.6); }
+  }
+
+  .si-btn-appeal {
+    width: 100%; margin-top: 20px; padding: 18px; border-radius: 16px;
+    background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+    color: #fff; font-size: 16px; font-weight: 900; letter-spacing: 0.1em;
+    border: none; cursor: pointer; transition: transform 0.15s;
+    box-shadow: 0 0 30px rgba(234,88,12,0.4);
+  }
+  .si-btn-appeal:hover { transform: scale(1.02); background: linear-gradient(135deg, #f97316, #ef4444); }
+
+  .si-toast-success {
+    position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(16,185,129,0.95); border: 2px solid #34d399;
+    padding: 16px 36px; border-radius: 20px; font-size: 18px; font-weight: 900;
+    color: #fff; text-align: center; z-index: 100;
+    box-shadow: 0 0 40px rgba(16,185,129,0.6); letter-spacing: 0.05em;
+  }
+
+  .si-vote-modal {
+    max-width: 550px; border: 2px solid rgba(249,115,22,0.5);
+    animation: neonFlash 2s infinite;
+  }
+  .si-vote-text { font-size: 20px; line-height: 1.6; text-align: center; margin-bottom: 28px; color: #e2e8f0; }
+  .si-vote-highlight { color: #f97316; font-weight: 900; }
+  .si-vote-answer { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 10px; color: #67e8f9; margin: 10px 0; font-style: italic; }
+
+  /* ---- YANGI: OVOZ BERISH TAYMERI ---- */
+  .si-appeal-timer-wrap { margin-bottom: 24px; text-align: center; }
+  .si-appeal-timer-label { font-size: 13px; color: rgba(255,255,255,0.4); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 10px; }
+  .si-appeal-timer-bar-bg {
+    height: 12px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden; margin: 0 auto; max-width: 400px;
+  }
+  .si-appeal-timer-bar {
+    height: 100%; border-radius: 999px; transition: width 1s linear, background 1s linear;
+  }
+  .si-appeal-timer-bar.green  { background: linear-gradient(90deg, #10b981, #34d399); box-shadow: 0 0 12px rgba(16,185,129,0.6); }
+  .si-appeal-timer-bar.yellow { background: linear-gradient(90deg, #f59e0b, #fde047); box-shadow: 0 0 12px rgba(245,158,11,0.6); }
+  .si-appeal-timer-bar.red    { background: linear-gradient(90deg, #ef4444, #f87171); box-shadow: 0 0 12px rgba(239,68,68,0.6); }
+  .si-appeal-timer-num {
+    font-size: 36px; font-weight: 900; margin-top: 8px; letter-spacing: 0.1em;
+    transition: color 0.5s;
+  }
+  .si-appeal-timer-num.green  { color: #34d399; }
+  .si-appeal-timer-num.yellow { color: #fde047; }
+  .si-appeal-timer-num.red    { color: #f87171; }
+
+  /* ---- YANGI: OVOZ BERISH NATIJALARI ---- */
+  .si-vote-results {
+    margin-bottom: 24px; border-radius: 20px; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1); padding: 20px;
+  }
+  .si-vote-results-label { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 14px; text-align: center; }
+  .si-vote-bar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .si-vote-bar-name { font-size: 14px; font-weight: 700; width: 90px; text-align: right; }
+  .si-vote-bar-name.yes { color: #34d399; }
+  .si-vote-bar-name.no  { color: #f87171; }
+  .si-vote-bar-track { flex: 1; height: 14px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .si-vote-bar-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+  .si-vote-bar-fill.yes { background: linear-gradient(90deg, #10b981, #34d399); }
+  .si-vote-bar-fill.no  { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .si-vote-bar-count { font-size: 15px; font-weight: 900; width: 32px; }
+  .si-vote-bar-count.yes { color: #34d399; }
+  .si-vote-bar-count.no  { color: #f87171; }
+  .si-vote-waiting { text-align: center; font-size: 13px; color: rgba(255,255,255,0.35); margin-top: 8px; letter-spacing: 0.1em; }
+
+  /* ---- YANGI: APELLATSIYA TARIXI ---- */
+  .si-history-section {
+    margin-top: 40px; border-radius: 24px; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(249,115,22,0.15); padding: 24px;
+  }
+  .si-history-title {
+    font-size: 13px; color: #f97316; letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: 20px; font-weight: 900;
+  }
+  .si-history-empty { color: rgba(255,255,255,0.25); font-size: 14px; text-align: center; padding: 20px 0; }
+  .si-history-item {
+    border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    padding: 18px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .si-history-badge {
+    font-size: 11px; font-weight: 900; letter-spacing: 0.15em; padding: 4px 12px; border-radius: 999px;
+    text-transform: uppercase; flex-shrink: 0;
+  }
+  .si-history-badge.qabul   { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+  .si-history-badge.rad     { background: rgba(239,68,68,0.2);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  .si-history-badge.kutilmoqda { background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+  .si-history-info { flex: 1; min-width: 0; }
+  .si-history-player { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+  .si-history-answer { font-size: 13px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .si-history-votes { font-size: 13px; color: rgba(255,255,255,0.4); flex-shrink: 0; text-align: right; }
+  .si-history-votes span.yes { color: #34d399; font-weight: 700; }
+  .si-history-votes span.no  { color: #f87171; font-weight: 700; }
+`;
+
+const APPEAL_TIMER_SECONDS = 30;
+
+function useInjectStyles(id, styles) {
+  useEffect(() => {
+    if (document.getElementById(id)) return;
+    const tag = document.createElement("style");
+    tag.id = id; tag.textContent = styles;
+    document.head.appendChild(tag);
+    return () => { const el = document.getElementById(id); if (el) el.remove(); };
+  }, [id, styles]);
+}
+
+// ---- Taymer Hook ----
+function useCountdown(active, seconds, onExpire) {
+  const [remaining, setRemaining] = useState(seconds);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!active) { setRemaining(seconds); return; }
+    setRemaining(seconds);
+    intervalRef.current = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) { clearInterval(intervalRef.current); onExpire?.(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [active, seconds]);
+
+  return remaining;
+}
+
+export default function SIGame_GameBoard({ socket }) {
+  useInjectStyles("si-game-styles", css);
+
+  const [players, setPlayers] = useState([
+    { id: 1, name: "ALI",  score: 1000 },
+    { id: 2, name: "VALI", score: 800 },
+    { id: 3, name: "SAMI", score: 600 },
+  ]);
+  const [currentPlayer] = useState({ id: 1, name: "ALI" });
+  const [isHost] = useState(false);
+
+  const [questionOpen, setQuestionOpen] = useState(false);
+  const [currentQuestion] = useState({
+    text: "Alisher Navoiy qaysi asari orqali o'zbek adabiy tiliga asos solgan?",
+    price: 400,
+  });
+
+  const [buzzedPlayer, setBuzzedPlayer] = useState(null);
+  const [hasTurn, setHasTurn]           = useState(false);
+  const [answerText, setAnswerText]     = useState("");
+  const [submittedAnswer, setSubmittedAnswer] = useState(null);
+
+  const [showAppealButton, setShowAppealButton] = useState(false);
+  const [appealVoteData, setAppealVoteData]     = useState(null);
+  const [toastMessage, setToastMessage]         = useState(null);
+  const [roomId] = useState("room_99");
+
+  // ---- YANGI: Ovoz berish holatlari ----
+  const [voteYes, setVoteYes] = useState(0);
+  const [voteNo,  setVoteNo]  = useState(0);
+  const [totalVoters, setTotalVoters] = useState(0); // Boshqa o'yinchilar soni
+  const [appealTimerActive, setAppealTimerActive] = useState(false);
+  const [myVoteSubmitted, setMyVoteSubmitted] = useState(false);
+
+  // ---- YANGI: Apellatsiya tarixi ----
+  const [appealHistory, setAppealHistory] = useState([]);
+
+  // ---- Taymer tugaganda avtomatik "Rozi emasman" ----
+  const onTimerExpire = useCallback(() => {
+    if (!myVoteSubmitted && appealVoteData) {
+      submitVote(false); // Vaqt o'tsa avtomatik rad
+    }
+    setAppealTimerActive(false);
+  }, [myVoteSubmitted, appealVoteData]);
+
+  const timerRemaining = useCountdown(appealTimerActive, APPEAL_TIMER_SECONDS, onTimerExpire);
+
+  const timerColor =
+    timerRemaining > 15 ? "green" :
+    timerRemaining > 7  ? "yellow" : "red";
+
+  const timerPct = (timerRemaining / APPEAL_TIMER_SECONDS) * 100;
+
+  // ---- Savolni ochish ----
+  const openQuestion = useCallback(() => {
+    setQuestionOpen(true);
+    setBuzzedPlayer(null);
+    setHasTurn(false);
+    setAnswerText("");
+    setSubmittedAnswer(null);
+    setShowAppealButton(false);
+  }, []);
+
+  // ---- Savolni yopish ----
+  const closeQuestion = useCallback(() => {
+    setQuestionOpen(false);
+    setBuzzedPlayer(null);
+    setHasTurn(false);
+    setAnswerText("");
+    setSubmittedAnswer(null);
+    setShowAppealButton(false);
+  }, []);
+
+  // ---- Buzzer ----
+  const pressBuzzer = useCallback(() => {
+    if (buzzedPlayer) return;
+    setBuzzedPlayer(currentPlayer.id);
+    setHasTurn(true);
+    socket?.emit?.("buzz_in", { playerId: currentPlayer.id, playerName: currentPlayer.name });
+  }, [buzzedPlayer, currentPlayer, socket]);
+
+  // ---- Javob yuborish ----
+  const sendAnswer = useCallback(() => {
+    if (!answerText.trim() || submittedAnswer) return;
+    const payload = { playerId: currentPlayer.id, playerName: currentPlayer.name, answer: answerText.trim() };
+    socket?.emit?.("send_answer", payload);
+    setSubmittedAnswer(payload);
+    setHasTurn(false);
+  }, [answerText, currentPlayer, socket, submittedAnswer]);
+
+  const onKeyDown = useCallback((e) => { if (e.key === "Enter") sendAnswer(); }, [sendAnswer]);
+
+  // ---- Boshlovchi qarori ----
+  const handleDecision = useCallback((correct) => {
+    if (!submittedAnswer) return;
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.id === submittedAnswer.playerId
+          ? { ...p, score: p.score + (correct ? currentQuestion.price : -currentQuestion.price) }
+          : p
+      )
+    );
+    socket?.emit?.("host_decision", { playerId: submittedAnswer.playerId, correct });
+    if (!correct && submittedAnswer.playerId === currentPlayer.id) {
+      setShowAppealButton(true);
+    } else {
+      closeQuestion();
+    }
+  }, [submittedAnswer, currentQuestion.price, socket, closeQuestion, currentPlayer.id]);
+
+  // ---- Apellatsiya boshlash ----
+  const triggerAppeal = useCallback(() => {
+    if (!submittedAnswer) return;
+    socket?.emit?.("submit_appeal", {
+      roomId, playerId: currentPlayer.id, playerName: currentPlayer.name,
+      answer: submittedAnswer.answer, questionPrice: currentQuestion.price,
+    });
+    setShowAppealButton(false);
+    // Tarixga "kutilmoqda" holatida qo'shish
+    setAppealHistory((prev) => [
+      { id: Date.now(), playerName: currentPlayer.name, answer: submittedAnswer.answer, status: "kutilmoqda", yes: 0, no: 0 },
+      ...prev,
+    ]);
+  }, [socket, roomId, currentPlayer, submittedAnswer, currentQuestion.price]);
+
+  // ---- Ovoz berish ----
+  const submitVote = useCallback((approve) => {
+    socket?.emit?.("cast_appeal_vote", { roomId, approve });
+    setMyVoteSubmitted(true);
+    // Mahalliy ovozni darhol ko'rsatish
+    if (approve) setVoteYes((v) => v + 1);
+    else         setVoteNo((v)  => v + 1);
+  }, [socket, roomId]);
+
+  // ---- Socket Events ----
+  useEffect(() => {
+    const onPlayerAnswered  = (data) => setSubmittedAnswer(data);
+    const onBuzzIn = (data) => { if (!buzzedPlayer) setBuzzedPlayer(data.playerId); };
+
+    // Apellatsiya ovoz berish oynasi (boshqa o'yinchilar uchun)
+    const onVoteAppealStarted = (data) => {
+      if (data.playerId !== currentPlayer.id) {
+        setAppealVoteData(data);
+        setVoteYes(0);
+        setVoteNo(0);
+        setTotalVoters(data.totalVoters ?? players.length - 1);
+        setMyVoteSubmitted(false);
+        setAppealTimerActive(true);
+      }
+    };
+
+    // Ovoz yangilanganda (boshqa birov ovoz bersa)
+    const onVoteUpdated = (data) => {
+      setVoteYes(data.yes ?? 0);
+      setVoteNo(data.no  ?? 0);
+    };
+
+    // Apellatsiya muvaffaqiyatli
+    const onAppealSuccess = (data) => {
+      setPlayers((prev) =>
+        prev.map((p) => p.id === data.playerId ? { ...p, score: p.score + data.scoreGain } : p)
+      );
+      setToastMessage("⚠️ Shikoyat qabul qilindi! Ballar tiklandi.");
+      setAppealVoteData(null);
+      setAppealTimerActive(false);
+      // Tarixni yangilash
+      setAppealHistory((prev) =>
+        prev.map((h, i) => i === 0 ? { ...h, status: "qabul", yes: data.yes ?? voteYes, no: data.no ?? voteNo } : h)
+      );
+      closeQuestion();
+      setTimeout(() => setToastMessage(null), 4000);
+    };
+
+    // Apellatsiya rad etildi
+    const onAppealFailed = (data) => {
+      setToastMessage("❌ Shikoyat rad etildi.");
+      setAppealVoteData(null);
+      setAppealTimerActive(false);
+      setAppealHistory((prev) =>
+        prev.map((h, i) => i === 0 ? { ...h, status: "rad", yes: data.yes ?? voteYes, no: data.no ?? voteNo } : h)
+      );
+      setTimeout(() => setToastMessage(null), 3000);
+    };
+
+    socket?.on?.("player_answered",     onPlayerAnswered);
+    socket?.on?.("buzz_in",             onBuzzIn);
+    socket?.on?.("vote_appeal_started", onVoteAppealStarted);
+    socket?.on?.("vote_updated",        onVoteUpdated);
+    socket?.on?.("appeal_success",      onAppealSuccess);
+    socket?.on?.("appeal_failed",       onAppealFailed);
+
+    return () => {
+      socket?.off?.("player_answered",     onPlayerAnswered);
+      socket?.off?.("buzz_in",             onBuzzIn);
+      socket?.off?.("vote_appeal_started", onVoteAppealStarted);
+      socket?.off?.("vote_updated",        onVoteUpdated);
+      socket?.off?.("appeal_success",      onAppealSuccess);
+      socket?.off?.("appeal_failed",       onAppealFailed);
+    };
+  }, [socket, buzzedPlayer, closeQuestion, currentPlayer.id, players.length, voteYes, voteNo]);
+
+  const buzzedName = buzzedPlayer ? (players.find((p) => p.id === buzzedPlayer)?.name ?? "—") : null;
+  const votedCount = voteYes + voteNo;
+  const waitingCount = Math.max(0, totalVoters - votedCount);
+
+  return (
+    <div className="si-root">
+
+      {/* TOAST */}
+      {toastMessage && <div className="si-toast-success">{toastMessage}</div>}
+
+      {/* HEADER */}
+      <div className="si-header">
+        <div>
+          <h1 className="si-title">SI GAME</h1>
+          <p className="si-subtitle">INTELLEKTUAL VIKTORINA</p>
+        </div>
+        <button className="si-btn-open" onClick={openQuestion}>SAVOLNI OCHISH</button>
+      </div>
+
+      {/* PLAYERS */}
+      <div className="si-players">
+        {players.map((player) => (
+          <div key={player.id} className={`si-player-card${player.id === buzzedPlayer ? " active-player" : ""}`}>
+            <div className="si-player-name">{player.name}</div>
+            <div className={`si-player-score${player.score < 0 ? " negative" : ""}`}>{player.score}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* YANGI: APELLATSIYA TARIXI */}
+      <div className="si-history-section">
+        <div className="si-history-title">⚠️ APELLATSIYA TARIXI</div>
+        {appealHistory.length === 0 ? (
+          <div className="si-history-empty">Hali hech qanday apellatsiya yo'q</div>
+        ) : (
+          appealHistory.map((h) => (
+            <div key={h.id} className="si-history-item">
+              <span className={`si-history-badge ${h.status}`}>
+                {h.status === "qabul" ? "✓ Qabul" : h.status === "rad" ? "✗ Rad" : "⏳ Kutilmoqda"}
+              </span>
+              <div className="si-history-info">
+                <div className="si-history-player">{h.playerName}</div>
+                <div className="si-history-answer">Javob: "{h.answer}"</div>
+              </div>
+              {h.status !== "kutilmoqda" && (
+                <div className="si-history-votes">
+                  <span className="yes">✓ {h.yes}</span> / <span className="no">✗ {h.no}</span>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* SAVOL MODALI */}
+      {questionOpen && (
+        <div className="si-overlay">
+          <div className="si-modal">
+            <div className="si-question-box">
+              {currentQuestion.text}
+              <div><span className="si-price-badge">{currentQuestion.price} BALL</span></div>
+            </div>
+
+            {buzzedPlayer && <div className="si-buzzed-notice">🔔 {buzzedName} javob bermoqda...</div>}
+
+            {!isHost && (
+              <div className="si-buzzer-wrap">
+                <button className="si-buzzer" onClick={pressBuzzer} disabled={!!buzzedPlayer}>
+                  {buzzedPlayer ? "⏳" : "BUZZER"}
+                </button>
+              </div>
+            )}
+
+            {hasTurn && !isHost && (
+              <div className="si-answer-row">
+                <input
+                  className="si-answer-input" type="text" value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)} onKeyDown={onKeyDown}
+                  placeholder="Javobingizni kiriting..." disabled={!!submittedAnswer} autoFocus
+                />
+                <button className="si-btn-send" onClick={sendAnswer} disabled={!!submittedAnswer || !answerText.trim()}>
+                  YUBORISH ➤
+                </button>
+              </div>
+            )}
+
+            {submittedAnswer && (
+              <div className="si-host-panel">
+                <p className="si-host-label">JAVOB BERGAN O'YINCHI</p>
+                <h3 className="si-host-player">{submittedAnswer.playerName}</h3>
+                <div className="si-host-answer">{submittedAnswer.answer}</div>
+                {!showAppealButton && (
+                  <div className="si-decision-grid">
+                    <button className="si-btn-correct" onClick={() => handleDecision(true)}>✓ TO'G'RI</button>
+                    <button className="si-btn-wrong"   onClick={() => handleDecision(false)}>✗ NOTO'G'RI</button>
+                  </div>
+                )}
+                {showAppealButton && (
+                  <button className="si-btn-appeal" onClick={triggerAppeal}>
+                    ⚠️ SHIKOYAT QILISH (APELLATSIYA)
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button className="si-btn-close" onClick={closeQuestion}>YOPISH</button>
+          </div>
+        </div>
+      )}
+
+      {/* OVOZ BERISH MODALI */}
+      {appealVoteData && (
+        <div className="si-overlay">
+          <div className="si-modal si-vote-modal">
+
+            {/* YANGI: TAYMER */}
+            <div className="si-appeal-timer-wrap">
+              <div className="si-appeal-timer-label">Ovoz berish vaqti</div>
+              <div className="si-appeal-timer-bar-bg">
+                <div
+                  className={`si-appeal-timer-bar ${timerColor}`}
+                  style={{ width: `${timerPct}%` }}
+                />
+              </div>
+              <div className={`si-appeal-timer-num ${timerColor}`}>{timerRemaining}s</div>
+            </div>
+
+            <div className="si-vote-text">
+              <span className="si-vote-highlight">{appealVoteData.playerName}</span> imlo xatosi tufayli shikoyat qildi.
+              <div className="si-vote-answer">Uning javobi: "{appealVoteData.answer}"</div>
+              Uning shikoyatiga rozi boisizmi?
+            </div>
+
+            {/* YANGI: OVOZ NATIJALARI */}
+            <div className="si-vote-results">
+              <div className="si-vote-results-label">Joriy ovozlar</div>
+              <div className="si-vote-bar-row">
+                <span className="si-vote-bar-name yes">✓ Roziman</span>
+                <div className="si-vote-bar-track">
+                  <div
+                    className="si-vote-bar-fill yes"
+                    style={{ width: totalVoters > 0 ? `${(voteYes / totalVoters) * 100}%` : "0%" }}
+                  />
+                </div>
+                <span className="si-vote-bar-count yes">{voteYes}</span>
+              </div>
+              <div className="si-vote-bar-row">
+                <span className="si-vote-bar-name no">✗ Rozi emas</span>
+                <div className="si-vote-bar-track">
+                  <div
+                    className="si-vote-bar-fill no"
+                    style={{ width: totalVoters > 0 ? `${(voteNo / totalVoters) * 100}%` : "0%" }}
+                  />
+                </div>
+                <span className="si-vote-bar-count no">{voteNo}</span>
+              </div>
+              {waitingCount > 0 && (
+                <div className="si-vote-waiting">⏳ {waitingCount} ta o'yinchi hali ovoz bermadi</div>
+              )}
+            </div>
+
+            {!myVoteSubmitted ? (
+              <div className="si-decision-grid">
+                <button className="si-btn-correct" onClick={() => submitVote(true)}>✅ Roziman</button>
+                <button className="si-btn-wrong"   onClick={() => submitVote(false)}>❌ Rozi emasman</button>
+              </div>
+            ) : (
+              <div className="si-buzzed-notice">✅ Ovozingiz qabul qilindi. Natija kutilmoqda...</div>
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

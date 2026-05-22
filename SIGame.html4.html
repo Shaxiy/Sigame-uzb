@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SIGame — Intellektual Viktorina</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Trebuchet MS','Segoe UI',sans-serif;background:#071028;min-height:100vh;}
+.scroll-thin::-webkit-scrollbar{width:4px;}
+.scroll-thin::-webkit-scrollbar-track{background:transparent;}
+.scroll-thin::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px;}
+.slider-blue{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;outline:none;cursor:pointer;width:100%;}
+.slider-blue::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#3b82f6;border:2px solid #fff;cursor:pointer;box-shadow:0 0 8px rgba(59,130,246,0.7);}
+.slider-blue::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#3b82f6;border:2px solid #fff;cursor:pointer;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+@keyframes twinkle{0%,100%{opacity:0.15;}50%{opacity:0.6;}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 25px rgba(59,130,246,0.35);}50%{box-shadow:0 0 50px rgba(59,130,246,0.65);}}
+@keyframes buzzPulse{0%,100%{box-shadow:0 0 50px rgba(239,68,68,0.7);}50%{box-shadow:0 0 80px rgba(239,68,68,1);}}
+@keyframes sendPulse{0%,100%{box-shadow:0 0 20px rgba(16,185,129,0.5);}50%{box-shadow:0 0 40px rgba(16,185,129,0.85);}}
+@keyframes neonFlash{0%,100%{border-color:rgba(239,68,68,0.4);box-shadow:0 0 20px rgba(239,68,68,0.2);}50%{border-color:rgba(249,115,22,1);box-shadow:0 0 40px rgba(249,115,22,0.6);}}
+.btn-menu{transition:background 0.2s,box-shadow 0.2s,transform 0.2s;border:none;outline:none;}
+.btn-menu:hover{background:rgba(255,255,255,0.16)!important;box-shadow:0 0 28px rgba(100,180,255,0.3)!important;transform:scale(1.03) translateX(4px)!important;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── SVG Icons ───────────────────────────────────────────────
+const MusicIcon = () => (
+  <svg viewBox="0 0 24 24" fill="#fde047" style={{width:26,height:26}}>
+    <path d="M9 17H5a2 2 0 0 0 0 4h2v2h2v-2a2 2 0 0 0 0-4zM19 3l-6 6.72V16a4 4 0 1 0 2 3.46V12.28L21 5.5 19 3z"/>
+  </svg>
+);
+const CapIcon = () => (
+  <svg viewBox="0 0 24 24" fill="#fde047" style={{width:26,height:26}}>
+    <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+  </svg>
+);
+const FolderIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" style={{width:16,height:16}}>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+const UserIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" style={{width:16,height:16}}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+  </svg>
+);
+const PlayersIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" style={{width:16,height:16}}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+const ChevronDown = ({ open }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+    style={{width:16,height:16,flexShrink:0,transform:open?"rotate(180deg)":"rotate(0)",transition:"transform 0.25s"}}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+);
+
+// ─── LocalStorage helpers ───────────────────────────────────
+const STORAGE_KEY = "sigame_packages";
+const DEFAULT_PACKAGE_NAME = "Standart savollar";
+const DEFAULT_QUESTIONS = [
+  {id:1,topic:"Tarix",q:"O'zbekiston qachon mustaqil bo'ldi?",a:"1991",price:100},
+  {id:2,topic:"Geografiya",q:"O'zbekistonning poytaxti qaysi shahar?",a:"Toshkent",price:200},
+  {id:3,topic:"Fan",q:"Suv qanday kimyoviy formulaga ega?",a:"H2O",price:100},
+  {id:4,topic:"Adabiyot",q:"'O'tkan kunlar' romanini kim yozgan?",a:"Abdulla Qodiriy",price:300},
+  {id:5,topic:"Matematika",q:"Kvadrat ildiz 144 dan necha?",a:"12",price:200},
+  {id:6,topic:"Tarix",q:"Buyuk Ipak yo'li qaysi mamlakatdan boshlangan?",a:"Xitoy",price:300},
+  {id:7,topic:"Geografiya",q:"Dunyodagi eng uzun daryo qaysi?",a:"Nil",price:400},
+  {id:8,topic:"Adabiyot",q:"Alisher Navoiy qaysi asrda yashagan?",a:"XV asr",price:400},
+  {id:9,topic:"Fan",q:"Yorug'lik tezligi taxminan qancha km/s?",a:"300000",price:500},
+  {id:10,topic:"Matematika",q:"Pi soni taxminan qancha?",a:"3.14",price:500},
+];
+const DEFAULT_PACKAGE = {id:"default", name: DEFAULT_PACKAGE_NAME, questions: DEFAULT_QUESTIONS};
+
+// Packages: [{id, name, questions:[]}]
+function loadPackages() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) { const p = JSON.parse(s); if (p && p.length > 0) return p; }
+  } catch(e) {}
+  return [DEFAULT_PACKAGE];
+}
+function savePackages(pkgs) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pkgs)); } catch(e) {}
+}
+function getPackageById(pkgs, id) {
+  return pkgs.find(p=>p.id===id) || pkgs[0];
+}
+// Legacy migration: if old sigame_questions key exists, migrate it
+function migrateOldData() {
+  try {
+    const old = localStorage.getItem("sigame_questions");
+    if (old) {
+      const qs = JSON.parse(old);
+      if (qs && qs.length > 0) {
+        const existing = loadPackages();
+        const hasLegacy = existing.find(p=>p.id==="legacy");
+        if (!hasLegacy) {
+          const migrated = [{id:"legacy", name:"Eski savollar", questions: qs}, ...existing];
+          savePackages(migrated);
+        }
+      }
+      localStorage.removeItem("sigame_questions");
+    }
+  } catch(e) {}
+}
+migrateOldData();
+
+// ─── Logo ────────────────────────────────────────────────────
+function Logo() {
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+          <div style={{alignSelf:"flex-start",paddingLeft:4}}><MusicIcon/></div>
+          <div style={{display:"flex",gap:4}}>
+            {["S","I"].map(l=>(
+              <div key={l} style={{width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",
+                fontWeight:900,fontSize:32,color:"#fff",
+                border:"2px solid rgba(255,255,255,0.65)",background:"rgba(255,255,255,0.08)",backdropFilter:"blur(4px)"}}>
+                {l}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{width:8}}/>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+          <div style={{alignSelf:"flex-end",paddingRight:4}}><CapIcon/></div>
+          <div style={{display:"flex",gap:4}}>
+            {["G","A","M","E"].map(l=>(
+              <div key={l} style={{width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",
+                fontWeight:900,fontSize:22,color:"#fff",
+                border:"2px solid rgba(255,255,255,0.65)",background:"rgba(255,255,255,0.08)",backdropFilter:"blur(4px)"}}>
+                {l}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p style={{color:"rgba(255,255,255,0.4)",fontSize:11,letterSpacing:"0.35em",textTransform:"uppercase"}}>
+        Intellektual Viktorina
+      </p>
+    </div>
+  );
+}
+
+// ─── Stars background ─────────────────────────────────────────
+function Stars() {
+  const stars = Array.from({length:20},(_,i)=>({
+    w:(Math.sin(i*37)*1+1.5),
+    top:((i*53)%100),left:((i*71)%100),
+    delay:(i*0.3),dur:(2+i%3)
+  }));
+  return (
+    <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:-80,left:-80,width:280,height:280,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(30,80,200,0.35) 0%, transparent 70%)",filter:"blur(50px)"}}/>
+      <div style={{position:"absolute",bottom:-60,right:-60,width:300,height:300,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(0,120,255,0.25) 0%, transparent 70%)",filter:"blur(60px)"}}/>
+      {stars.map((s,i)=>(
+        <div key={i} style={{position:"absolute",borderRadius:"50%",background:"#fff",
+          width:s.w,height:s.w,top:s.top+"%",left:s.left+"%",
+          opacity:0.2,animation:`twinkle ${s.dur}s ease-in-out infinite`,animationDelay:s.delay+"s"}}/>
+      ))}
+    </div>
+  );
+}
+
+// ─── MAIN MENU ────────────────────────────────────────────────
+const menuItems = [
+  {id:1,label:"ONLAYN O'YIN",icon:"🌐",action:"online"},
+  {id:2,label:"YAKKALIK O'YIN",icon:"🎮",action:"solo"},
+  {id:3,label:"PIN-KOD ORQALI KIRISH",icon:"🔑",action:"pin"},
+  {id:4,label:"QANDAY O'YNAYMAN?",icon:"❓",action:"help"},
+  {id:5,label:"SAVOL MUHARRIRI",icon:"✏️",action:"editor"},
+];
+
+function MainMenu({ onAction }) {
+  const [loaded,setLoaded]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setLoaded(true),80);return()=>clearTimeout(t);},[]);
+  return (
+    <div style={{minHeight:"100vh",width:"100%",display:"flex",flexDirection:"column",
+      alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden",
+      padding:"40px 16px",
+      background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 40%,#0a2a6e 70%,#0c1f5a 100%)"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,display:"flex",flexDirection:"column",
+        alignItems:"center",width:"100%",maxWidth:480,gap:32,
+        opacity:loaded?1:0,transform:loaded?"translateY(0)":"translateY(-24px)",transition:"all 0.7s ease"}}>
+        <Logo/>
+        <nav style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%",gap:10}}>
+          {menuItems.map((item,idx)=>(
+            <button key={item.id} className="btn-menu"
+              onClick={()=>onAction(item.action)}
+              style={{width:"100%",maxWidth:400,display:"flex",alignItems:"center",gap:16,
+                padding:"14px 24px",textAlign:"left",
+                background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.18)",
+                borderRadius:12,backdropFilter:"blur(10px)",
+                opacity:loaded?1:0,
+                animation:loaded?`fadeUp 0.5s ease ${idx*0.07}s both`:"none",
+                cursor:"pointer"}}>
+              <span style={{fontSize:18}}>{item.icon}</span>
+              <span style={{color:"#fff",fontWeight:700,letterSpacing:"0.13em",fontSize:13,flex:1}}>{item.label}</span>
+              <span style={{color:"rgba(150,210,255,0.7)",fontSize:12}}>▶</span>
+            </button>
+          ))}
+        </nav>
+        <p style={{color:"rgba(255,255,255,0.2)",fontSize:11,letterSpacing:"0.2em"}}>v2.0.0 · SIGame Uzbek Edition</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── HELPER COMPONENTS ────────────────────────────────────────
+function Card({label,icon,hint,children}){
+  return(
+    <div style={{borderRadius:12,padding:16,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        {icon}
+        <span style={{color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:700}}>{label}</span>
+        {hint&&<span style={{color:"rgba(255,255,255,0.22)",fontSize:11}}>— {hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DDMenu({value,options,open,onToggle,onSelect,capitalize}){
+  return(
+    <div style={{position:"relative",width:"100%"}} data-dd>
+      <button data-dd onClick={onToggle} style={{width:"100%",display:"flex",alignItems:"center",
+        justifyContent:"space-between",padding:"10px 14px",borderRadius:10,fontSize:14,
+        color:"#fff",fontWeight:600,cursor:"pointer",transition:"all 0.2s",
+        background:open?"rgba(37,99,235,0.22)":"rgba(255,255,255,0.08)",
+        border:open?"1px solid rgba(100,160,255,0.5)":"1px solid rgba(255,255,255,0.12)",
+        textTransform:capitalize?"capitalize":"none"}}>
+        <span>{value}</span><ChevronDown open={open}/>
+      </button>
+      {open&&(
+        <div data-dd style={{position:"absolute",left:0,right:0,zIndex:100,top:"calc(100% + 4px)",
+          borderRadius:12,overflow:"hidden",
+          background:"#0d1b4b",border:"1px solid rgba(100,160,255,0.3)",boxShadow:"0 16px 40px rgba(0,0,0,0.6)"}}>
+          {options.map(opt=>(
+            <button key={opt} data-dd onClick={()=>onSelect(opt)} style={{width:"100%",textAlign:"left",
+              padding:"10px 14px",fontSize:13,cursor:"pointer",transition:"background 0.15s",
+              color:opt===value?"#fff":"rgba(255,255,255,0.55)",
+              background:opt===value?"rgba(37,99,235,0.3)":"transparent",
+              borderBottom:"1px solid rgba(255,255,255,0.05)",
+              textTransform:capitalize?"capitalize":"none"}}>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CBRow({checked,onChange,label,hint}){
+  return(
+    <div style={{display:"flex",alignItems:"flex-start",gap:12,cursor:"pointer"}} onClick={()=>onChange(!checked)}>
+      <div style={{flexShrink:0,width:20,height:20,borderRadius:4,display:"flex",
+        alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.2s",
+        background:checked?"#2563eb":"rgba(255,255,255,0.08)",
+        border:checked?"1px solid #3b82f6":"1px solid rgba(255,255,255,0.2)",
+        boxShadow:checked?"0 0 10px rgba(37,99,235,0.5)":"none"}}>
+        {checked&&<svg viewBox="0 0 12 10" fill="none" style={{width:12,height:10}}>
+          <polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>}
+      </div>
+      <div>
+        <p style={{color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:500}}>{label}</p>
+        {hint&&<p style={{color:"rgba(255,255,255,0.28)",fontSize:11,marginTop:2}}>{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOM SETTINGS MODAL ──────────────────────────────────────
+const defaultSettings={
+  questionPackage:"",myRole:"o'yinchi",playersCount:3,
+  gameType:"Klassik",controlledGame:false,
+  playAllQuestions:false,falseStarts:true,finalRound:false,
+  timeQuestionSelect:30,timeTopicSelect:20,timePassQuestion:15,
+  timePressButton:10,timeAnswerAfterPress:25,timeSpecialQuestion:40,
+  timeAllAnswer:30,timeBidding:15,timeHostDecision:20,
+};
+
+function XonaTab({settings,update,openDD,setOpenDD}){
+  const [allPkgs, setAllPkgs] = React.useState(()=>loadPackages());
+  React.useEffect(()=>{ setAllPkgs(loadPackages()); },[openDD]);
+  const pkgOptions = allPkgs.map(p=>p.name);
+  const roles=["o'yinchi","boshlovchi","tomoshabin"];
+  const pct=((settings.playersCount-2)/10)*100;
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <Card label="Savollar paketi" icon={<FolderIcon/>} hint="Savol to'plamini tanlang">
+        <DDMenu value={settings.questionPackage || allPkgs[0]?.name || "—"} options={pkgOptions}
+          open={openDD==="pkg"} onToggle={()=>setOpenDD(p=>p==="pkg"?null:"pkg")}
+          onSelect={v=>{update("questionPackage",v);setOpenDD(null);}}/>
+        {allPkgs.length===1&&allPkgs[0].id==="default"&&(
+          <p style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.3)"}}>
+            💡 Yangi paket qo'shish uchun → Savol Muharririga o'ting
+          </p>
+        )}
+      </Card>
+      <Card label="Mening rolim" icon={<UserIcon/>} hint="O'yindagi rolingiz">
+        <DDMenu value={settings.myRole} options={roles} capitalize
+          open={openDD==="role"} onToggle={()=>setOpenDD(p=>p==="role"?null:"role")}
+          onSelect={v=>{update("myRole",v);setOpenDD(null);}}/>
+      </Card>
+      <Card label="O'yinchilar soni" icon={<PlayersIcon/>} hint="2 dan 12 gacha">
+        <div style={{display:"flex",alignItems:"center",gap:14,width:"100%"}}>
+          <div style={{flexShrink:0,width:48,height:44,display:"flex",alignItems:"center",
+            justifyContent:"center",fontWeight:900,fontSize:20,color:"#fff",borderRadius:10,
+            background:"linear-gradient(135deg,#1e40af,#2563eb)",boxShadow:"0 0 14px rgba(37,99,235,0.55)"}}>
+            {settings.playersCount}
+          </div>
+          <div style={{flex:1}}>
+            <input type="range" min={2} max={12} value={settings.playersCount}
+              onChange={e=>update("playersCount",Number(e.target.value))}
+              className="slider-blue"
+              style={{background:`linear-gradient(to right,#2563eb 0%,#2563eb ${pct}%,rgba(255,255,255,0.15) ${pct}%,rgba(255,255,255,0.15) 100%)`}}/>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+              <span style={{color:"rgba(255,255,255,0.3)",fontSize:11}}>2</span>
+              <span style={{color:"rgba(255,255,255,0.3)",fontSize:11}}>12</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function QoidalarTab({settings,update}){
+  const types=["Klassik","Tez o'yin","Jamoa o'yini","Turnir"];
+  const hints={"Klassik":"An'anaviy qoidalar.","Tez o'yin":"Qisqa vaqt, tez sur'at.","Jamoa o'yini":"Jamoalar birgalikda.","Turnir":"Bosqichli turnir."};
+  const rules=[
+    {key:"controlledGame",label:"Boshqariladigan o'yin",hint:"Boshlovchi har bosqichni nazorat qiladi"},
+    {key:"playAllQuestions",label:"Barcha savollarni o'ynash",hint:"Hech bir savol o'tkazib yuborilmaydi"},
+    {key:"falseStarts",label:"Falstartlar",hint:"Savol o'qilayotganda tugma bosish mumkin"},
+    {key:"finalRound",label:"Yakuniy raund",hint:"Ohirgi raundda barcha qatnashadi"},
+  ];
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <Card label="O'yin turi" hint="Qoidalar to'plamini tanlang">
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {types.map(t=>(
+            <div key={t} onClick={()=>update("gameType",t)}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,cursor:"pointer",transition:"all 0.15s",
+                background:settings.gameType===t?"rgba(37,99,235,0.2)":"rgba(255,255,255,0.04)",
+                border:settings.gameType===t?"1px solid rgba(37,99,235,0.5)":"1px solid transparent"}}>
+              <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid",flexShrink:0,
+                borderColor:settings.gameType===t?"#3b82f6":"rgba(255,255,255,0.3)",
+                background:settings.gameType===t?"#2563eb":"transparent",transition:"all 0.15s"}}/>
+              <div>
+                <p style={{color:"rgba(255,255,255,0.85)",fontSize:13,fontWeight:600}}>{t}</p>
+                <p style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginTop:1}}>{hints[t]}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card label="Qoidalar" hint="Maxsus o'yin sozlamalari">
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {rules.map(r=><CBRow key={r.key} checked={settings[r.key]} onChange={v=>update(r.key,v)} label={r.label} hint={r.hint}/>)}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function VaqtTab({settings,update}){
+  const sliders=[
+    {key:"timeQuestionSelect",label:"Savol tanlash",max:60},
+    {key:"timeTopicSelect",label:"Mavzu tanlash",max:60},
+    {key:"timePassQuestion",label:"Savolni o'tkazib yuborish",max:30},
+    {key:"timePressButton",label:"Tugma bosish",max:30},
+    {key:"timeAnswerAfterPress",label:"Javob vaqti (bosish keyin)",max:60},
+    {key:"timeSpecialQuestion",label:"Maxsus savol",max:90},
+    {key:"timeAllAnswer",label:"Hammaning javobi",max:60},
+    {key:"timeBidding",label:"Stavka vaqti",max:30},
+    {key:"timeHostDecision",label:"Boshlovchi qarori",max:40},
+  ];
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {sliders.map(s=>{
+        const pct=((settings[s.key]-5)/(s.max-5))*100;
+        return(
+          <div key={s.key} style={{borderRadius:12,padding:"12px 14px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{s.label}</span>
+              <span style={{fontSize:13,fontWeight:900,color:"#fde047",minWidth:40,textAlign:"right"}}>{settings[s.key]}s</span>
+            </div>
+            <input type="range" min={5} max={s.max} step={5} value={settings[s.key]}
+              onChange={e=>update(s.key,Number(e.target.value))}
+              className="slider-thumb"
+              style={{background:`linear-gradient(to right,#f59e0b 0%,#f59e0b ${pct}%,rgba(255,255,255,0.12) ${pct}%,rgba(255,255,255,0.12) 100%)`}}/>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RoomSettingsModal({onClose, onCreate}){
+  const [tab,setTab]=useState("xona");
+  const initPkgs = loadPackages();
+  const [settings,setSettings]=useState({...defaultSettings, questionPackage: initPkgs[0]?.name || ""});
+  const [openDD,setOpenDD]=useState(null);
+  const update=(k,v)=>setSettings(p=>({...p,[k]:v}));
+  const tabs=[{id:"xona",label:"Xona"},{id:"qoidalar",label:"Qoidalar"},{id:"vaqt",label:"Vaqt"}];
+  useEffect(()=>{
+    const h=e=>{if(!e.target.closest("[data-dd]"))setOpenDD(null);};
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",
+      display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,padding:16}}>
+      <div className="scroll-thin" style={{width:"100%",maxWidth:500,borderRadius:24,
+        border:"1px solid rgba(255,255,255,0.12)",background:"rgba(8,16,40,0.97)",
+        padding:28,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 0 60px rgba(37,99,235,0.25)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
+          <h2 style={{color:"#fff",fontWeight:900,fontSize:18,letterSpacing:"0.08em"}}>⚙️ O'YIN SOZLAMALARI</h2>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",
+            borderRadius:8,padding:"6px 10px",cursor:"pointer",color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{width:20,height:20}}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style={{display:"flex",gap:4,marginBottom:20,background:"rgba(255,255,255,0.05)",borderRadius:12,padding:4}}>
+          {tabs.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"8px 6px",borderRadius:9,fontSize:13,fontWeight:700,
+              cursor:"pointer",border:"none",transition:"all 0.2s",letterSpacing:"0.06em",
+              background:tab===t.id?"rgba(37,99,235,0.7)":"transparent",color:tab===t.id?"#fff":"rgba(255,255,255,0.45)"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {tab==="xona"&&<XonaTab settings={settings} update={update} openDD={openDD} setOpenDD={setOpenDD}/>}
+        {tab==="qoidalar"&&<QoidalarTab settings={settings} update={update}/>}
+        {tab==="vaqt"&&<VaqtTab settings={settings} update={update}/>}
+        <div style={{marginTop:24,display:"flex",justifyContent:"center"}}>
+          <button onClick={()=>onCreate(settings)}
+            style={{padding:"12px 36px",borderRadius:12,fontWeight:900,fontSize:13,
+              letterSpacing:"0.15em",textTransform:"uppercase",cursor:"pointer",
+              background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#0a0f2e",border:"none",
+              boxShadow:"0 6px 20px rgba(245,158,11,0.45)"}}>
+            ✦ YARATISH
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GAME BOARD ───────────────────────────────────────────────
+const APPEAL_TIMER = 30;
+
+function useCountdown(active, seconds, onExpire) {
+  const [rem, setRem] = useState(seconds);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!active) { setRem(seconds); return; }
+    setRem(seconds);
+    ref.current = setInterval(() => {
+      setRem(p => {
+        if (p <= 1) { clearInterval(ref.current); onExpire?.(); return 0; }
+        return p - 1;
+      });
+    }, 1000);
+    return () => clearInterval(ref.current);
+  }, [active, seconds]);
+  return rem;
+}
+
+function GameBoard({ onBack, selectedPackageName }) {
+  const allPkgs = loadPackages();
+  const activePkg = allPkgs.find(p=>p.name===selectedPackageName) || allPkgs[0];
+  const allQuestions = activePkg ? activePkg.questions : DEFAULT_QUESTIONS;
+  const [usedIds, setUsedIds] = useState([]);
+  const [currentQ, setCurrentQ] = useState(null);
+  const [players, setPlayers] = useState([
+    {id:1,name:"ALI",score:1000},
+    {id:2,name:"VALI",score:800},
+    {id:3,name:"SAMI",score:600},
+  ]);
+  const [isHost] = useState(true);
+  const [currentPlayer] = useState({id:1,name:"ALI"});
+  const [qOpen, setQOpen] = useState(false);
+  const [buzzed, setBuzzed] = useState(null);
+  const [hasTurn, setHasTurn] = useState(false);
+  const [answerText, setAnswerText] = useState("");
+  const [submitted, setSubmitted] = useState(null);
+  const [showAppeal, setShowAppeal] = useState(false);
+  const [appealVote, setAppealVote] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [voteYes, setVoteYes] = useState(0);
+  const [voteNo, setVoteNo] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const [myVoted, setMyVoted] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  const onExpire = useCallback(() => {
+    if (!myVoted && appealVote) { setVoteNo(v=>v+1); setMyVoted(true); }
+    setTimerActive(false);
+  }, [myVoted, appealVote]);
+
+  const timerRem = useCountdown(timerActive, APPEAL_TIMER, onExpire);
+  const timerColor = timerRem > 15 ? "green" : timerRem > 7 ? "yellow" : "red";
+  const timerPct = (timerRem / APPEAL_TIMER) * 100;
+
+  const openQ = () => {
+    const remaining = allQuestions.filter(q=>!usedIds.includes(q.id));
+    const pool = remaining.length > 0 ? remaining : allQuestions;
+    const picked = pool[Math.floor(Math.random()*pool.length)];
+    setCurrentQ(picked ? {text:picked.q, answer:picked.a, price:picked.price, topic:picked.topic, id:picked.id} : null);
+    if (picked && remaining.length > 0) setUsedIds(p=>[...p, picked.id]);
+    else if (remaining.length === 0) setUsedIds([picked?.id].filter(Boolean));
+    setQOpen(true); setBuzzed(null); setHasTurn(false); setAnswerText(""); setSubmitted(null); setShowAppeal(false);
+  };
+  const closeQ = () => { setQOpen(false); setBuzzed(null); setHasTurn(false); setAnswerText(""); setSubmitted(null); setShowAppeal(false); };
+
+  const pressBuzzer = () => {
+    if (buzzed) return;
+    setBuzzed(currentPlayer.id);
+    setHasTurn(true);
+    setAnswerText("");
+  };
+  const sendAnswer = () => {
+    if (!answerText.trim() || submitted) return;
+    setSubmitted({playerId:currentPlayer.id, playerName:currentPlayer.name, answer:answerText.trim()});
+    setHasTurn(false);
+  };
+
+  const handleDecision = (correct) => {
+    if (!submitted || !currentQ) return;
+    setPlayers(prev=>prev.map(p=>p.id===submitted.playerId?{...p,score:p.score+(correct?currentQ.price:-currentQ.price)}:p));
+    if (!correct && submitted.playerId===currentPlayer.id) {
+      setShowAppeal(true);
+    } else { closeQ(); }
+  };
+
+  const triggerAppeal = () => {
+    setShowAppeal(false);
+    setAppealVote({playerName:currentPlayer.name, answer:submitted.answer});
+    setVoteYes(0); setVoteNo(0); setMyVoted(false); setTimerActive(true);
+    setHistory(prev=>[{id:Date.now(),playerName:currentPlayer.name,answer:submitted.answer,status:"kutilmoqda",yes:0,no:0},...prev]);
+  };
+
+  const submitVote = (approve) => {
+    setMyVoted(true);
+    if (approve) setVoteYes(v=>v+1); else setVoteNo(v=>v+1);
+  };
+
+  const resolveAppeal = (accepted) => {
+    if (accepted && currentQ) {
+      setPlayers(prev=>prev.map(p=>p.id===currentPlayer.id?{...p,score:p.score+currentQ.price}:p));
+      setToast("⚠️ Shikoyat qabul qilindi! Ballar tiklandi.");
+    } else {
+      setToast("❌ Shikoyat rad etildi.");
+    }
+    setHistory(prev=>prev.map((h,i)=>i===0?{...h,status:accepted?"qabul":"rad",yes:voteYes,no:voteNo}:h));
+    setAppealVote(null); setTimerActive(false);
+    if (accepted) closeQ();
+    setTimeout(()=>setToast(null),3500);
+  };
+
+  const timerBarColor = {green:"linear-gradient(90deg,#10b981,#34d399)",yellow:"linear-gradient(90deg,#f59e0b,#fde047)",red:"linear-gradient(90deg,#ef4444,#f87171)"};
+  const timerNumColor = {green:"#34d399",yellow:"#fde047",red:"#f87171"};
+  const buzzedName = buzzed ? (players.find(p=>p.id===buzzed)?.name ?? "—") : null;
+  const totalVoters = players.length - 1;
+  const waitingCount = Math.max(0, totalVoters - voteYes - voteNo);
+
+  return (
+    <div style={{minHeight:"100vh",padding:24,color:"#fff",
+      background:"linear-gradient(135deg,#071028 0%,#0c1f4d 50%,#071028 100%)"}}>
+
+      {toast&&<div style={{position:"fixed",top:30,left:"50%",transform:"translateX(-50%)",
+        background:"rgba(16,185,129,0.95)",border:"2px solid #34d399",
+        padding:"16px 36px",borderRadius:20,fontSize:17,fontWeight:900,
+        color:"#fff",textAlign:"center",zIndex:100,boxShadow:"0 0 40px rgba(16,185,129,0.6)",
+        letterSpacing:"0.05em"}}>{toast}</div>}
+
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:36,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h1 style={{fontSize:42,fontWeight:900,letterSpacing:"0.25em",color:"#67e8f9"}}>SI GAME</h1>
+          <p style={{color:"rgba(255,255,255,0.4)",marginTop:4,letterSpacing:"0.2em",fontSize:12}}>
+            {activePkg?.name ? `📦 ${activePkg.name}` : "INTELLEKTUAL VIKTORINA"} · {allQuestions.length - usedIds.length}/{allQuestions.length} savol qoldi
+          </p>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button className="si-btn-open" onClick={openQ}>SAVOLNI OCHISH</button>
+          <button onClick={onBack} style={{padding:"12px 20px",borderRadius:12,background:"rgba(255,255,255,0.07)",
+            border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.6)",
+            fontSize:13,fontWeight:700,cursor:"pointer"}}>← MENYU</button>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:18,marginBottom:32}}>
+        {players.map(p=>(
+          <div key={p.id} style={{borderRadius:22,padding:22,
+            border:p.id===buzzed?"1px solid rgba(103,232,249,0.6)":"1px solid rgba(103,232,249,0.2)",
+            background:"rgba(255,255,255,0.05)",backdropFilter:"blur(16px)",
+            boxShadow:p.id===buzzed?"0 0 20px rgba(103,232,249,0.25)":"none",transition:"all 0.3s"}}>
+            <div style={{fontSize:20,fontWeight:900,marginBottom:8}}>{p.name}</div>
+            <div style={{fontSize:40,fontWeight:900,color:p.score<0?"#f87171":"#fde047"}}>{p.score}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{borderRadius:22,background:"rgba(255,255,255,0.03)",
+        border:"1px solid rgba(249,115,22,0.15)",padding:22}}>
+        <div style={{fontSize:12,color:"#f97316",letterSpacing:"0.3em",textTransform:"uppercase",
+          marginBottom:18,fontWeight:900}}>⚠️ APELLATSIYA TARIXI</div>
+        {history.length===0
+          ? <div style={{color:"rgba(255,255,255,0.25)",fontSize:14,textAlign:"center",padding:"16px 0"}}>Hali hech qanday apellatsiya yo'q</div>
+          : history.map(h=>(
+            <div key={h.id} style={{borderRadius:14,background:"rgba(255,255,255,0.04)",
+              border:"1px solid rgba(255,255,255,0.08)",padding:"16px 18px",
+              marginBottom:10,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,fontWeight:900,letterSpacing:"0.15em",padding:"4px 12px",
+                borderRadius:999,textTransform:"uppercase",flexShrink:0,
+                background:h.status==="qabul"?"rgba(16,185,129,0.2)":h.status==="rad"?"rgba(239,68,68,0.2)":"rgba(249,115,22,0.2)",
+                color:h.status==="qabul"?"#34d399":h.status==="rad"?"#f87171":"#fb923c",
+                border:`1px solid ${h.status==="qabul"?"rgba(16,185,129,0.3)":h.status==="rad"?"rgba(239,68,68,0.3)":"rgba(249,115,22,0.3)"}`}}>
+                {h.status==="qabul"?"✓ Qabul":h.status==="rad"?"✗ Rad":"⏳ Kutilmoqda"}
+              </span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:15,fontWeight:900,marginBottom:4}}>{h.playerName}</div>
+                <div style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>Javob: {h.answer}</div>
+              </div>
+              {h.status!=="kutilmoqda"&&(
+                <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",textAlign:"right",flexShrink:0}}>
+                  <span style={{color:"#34d399",fontWeight:700}}>✓ {h.yes}</span> / <span style={{color:"#f87171",fontWeight:700}}>✗ {h.no}</span>
+                </div>
+              )}
+            </div>
+          ))
+        }
+      </div>
+
+      {qOpen&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",
+          display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,padding:16}}>
+          <div className="scroll-thin" style={{width:"100%",maxWidth:860,borderRadius:30,
+            border:"1px solid rgba(103,232,249,0.2)",background:"rgba(8,20,47,0.95)",
+            padding:32,boxShadow:"0 0 60px rgba(59,130,246,0.35)",
+            maxHeight:"90vh",overflowY:"auto"}}>
+
+            <div style={{borderRadius:22,background:"rgba(255,255,255,0.05)",
+              border:"1px solid rgba(255,255,255,0.1)",padding:30,
+              textAlign:"center",fontSize:24,fontWeight:700,lineHeight:1.55,marginBottom:28}}>
+              {currentQ ? (
+                <>
+                  {currentQ.topic && <div style={{fontSize:13,color:"#67e8f9",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12,fontWeight:900}}>{currentQ.topic}</div>}
+                  {currentQ.text}
+                  <div style={{marginTop:12,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+                    <span style={{display:"inline-block",padding:"4px 18px",borderRadius:999,
+                      background:"rgba(253,224,71,0.15)",color:"#fde047",fontSize:14,fontWeight:900}}>
+                      {currentQ.price} BALL
+                    </span>
+                    {isHost && currentQ.answer && (
+                      <span style={{display:"inline-block",padding:"4px 18px",borderRadius:999,
+                        background:"rgba(16,185,129,0.15)",color:"#34d399",fontSize:13,fontWeight:700,
+                        border:"1px solid rgba(16,185,129,0.3)"}}>
+                        ✓ {currentQ.answer}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:16}}>Savollar tugadi!</div>
+              )}
+            </div>
+
+            {!submitted&&(
+              <div style={{display:"flex",justifyContent:"center",marginBottom:24}}>
+                <button className="si-buzzer" onClick={pressBuzzer} disabled={!!buzzed}>
+                  {buzzed?"⏳ KUTILMOQDA":"🔴 BUZZER"}
+                </button>
+              </div>
+            )}
+
+            {buzzed&&!submitted&&(
+              <div style={{textAlign:"center",marginBottom:20,padding:"14px 22px",borderRadius:14,
+                background:"rgba(103,232,249,0.08)",border:"1px solid rgba(103,232,249,0.25)",
+                color:"#67e8f9",fontWeight:700,fontSize:17}}>
+                🔔 {buzzedName} javob bermoqda...
+              </div>
+            )}
+
+            {hasTurn&&!submitted&&(
+              <div style={{display:"flex",flexDirection:"row",gap:12,alignItems:"center",marginBottom:24}}>
+                <input value={answerText} onChange={e=>setAnswerText(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&sendAnswer()}
+                  placeholder="✍️ Javobingizni shu yerga yozing..."
+                  autoFocus
+                  style={{flex:1,minWidth:0,borderRadius:14,
+                    background:"rgba(255,255,255,0.12)",
+                    border:"2px solid rgba(103,232,249,0.5)",
+                    padding:"16px 20px",color:"#fff",fontSize:17,outline:"none",
+                    boxShadow:"0 0 20px rgba(103,232,249,0.15)"}}/>
+                <button className="si-btn-send" onClick={sendAnswer} disabled={!answerText.trim()}>
+                  YUBORISH ➤
+                </button>
+              </div>
+            )}
+
+            {submitted&&(
+              <div style={{marginTop:8,borderRadius:22,background:"rgba(255,255,255,0.05)",
+                border:"1px solid rgba(253,224,71,0.2)",padding:26}}>
+                <p style={{color:"#fde047",textTransform:"uppercase",letterSpacing:"0.3em",fontSize:11,marginBottom:6}}>JAVOB BERGAN O'YINCHI</p>
+                <h3 style={{fontSize:26,fontWeight:900,marginBottom:14}}>{submitted.playerName}</h3>
+                <div style={{borderRadius:14,background:"rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,0.1)",
+                  padding:"16px 18px",fontSize:18,marginBottom:22}}>{submitted.answer}</div>
+                {!showAppeal&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+                    <button onClick={()=>handleDecision(true)} style={{padding:18,borderRadius:14,
+                      background:"linear-gradient(135deg,#166534,#10b981)",color:"#fff",fontSize:18,
+                      fontWeight:900,letterSpacing:"0.15em",border:"none",cursor:"pointer",
+                      boxShadow:"0 0 30px rgba(34,197,94,0.4)"}}>✓ TO'G'RI</button>
+                    <button onClick={()=>handleDecision(false)} style={{padding:18,borderRadius:14,
+                      background:"linear-gradient(135deg,#991b1b,#ef4444)",color:"#fff",fontSize:18,
+                      fontWeight:900,letterSpacing:"0.15em",border:"none",cursor:"pointer",
+                      boxShadow:"0 0 30px rgba(239,68,68,0.4)"}}>✗ NOTO'G'RI</button>
+                  </div>
+                )}
+                {showAppeal&&(
+                  <button onClick={triggerAppeal} style={{width:"100%",padding:16,borderRadius:14,
+                    background:"linear-gradient(135deg,#ea580c,#dc2626)",color:"#fff",fontSize:15,
+                    fontWeight:900,letterSpacing:"0.1em",border:"none",cursor:"pointer",
+                    boxShadow:"0 0 28px rgba(234,88,12,0.4)"}}>
+                    ⚠️ SHIKOYAT QILISH (APELLATSIYA)
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button onClick={closeQ} style={{display:"block",margin:"22px auto 0",padding:"10px 26px",
+              borderRadius:10,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",
+              color:"rgba(255,255,255,0.5)",fontSize:12,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer"}}>
+              YOPISH
+            </button>
+          </div>
+        </div>
+      )}
+
+      {appealVote&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(8px)",
+          display:"flex",alignItems:"center",justifyContent:"center",zIndex:60,padding:16}}>
+          <div className="scroll-thin" style={{width:"100%",maxWidth:520,borderRadius:28,
+            border:"2px solid rgba(249,115,22,0.5)",background:"rgba(8,20,47,0.97)",
+            padding:28,boxShadow:"0 0 50px rgba(249,115,22,0.3)",
+            maxHeight:"90vh",overflowY:"auto",
+            animation:"neonFlash 2s infinite"}}>
+
+            <div style={{marginBottom:22,textAlign:"center"}}>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",letterSpacing:"0.15em",
+                textTransform:"uppercase",marginBottom:8}}>Ovoz berish vaqti</div>
+              <div style={{height:10,borderRadius:999,background:"rgba(255,255,255,0.1)",overflow:"hidden",maxWidth:380,margin:"0 auto"}}>
+                <div style={{height:"100%",borderRadius:999,
+                  background:timerBarColor[timerColor],width:timerPct+"%",transition:"width 1s linear"}}/>
+              </div>
+              <div style={{fontSize:34,fontWeight:900,marginTop:8,color:timerNumColor[timerColor]}}>{timerRem}s</div>
+            </div>
+
+            <div style={{fontSize:18,lineHeight:1.6,textAlign:"center",marginBottom:22,color:"#e2e8f0"}}>
+              <span style={{color:"#f97316",fontWeight:900}}>{appealVote.playerName}</span> shikoyat qildi.
+              <div style={{background:"rgba(0,0,0,0.4)",padding:"10px 14px",borderRadius:10,
+                color:"#67e8f9",margin:"10px 0"}}>
+                Javobi: {appealVote.answer}
+              </div>
+              Shikoyatga rozi boisizmi?
+            </div>
+
+            <div style={{marginBottom:22,borderRadius:18,background:"rgba(255,255,255,0.04)",
+              border:"1px solid rgba(255,255,255,0.1)",padding:18}}>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",letterSpacing:"0.25em",
+                textTransform:"uppercase",marginBottom:12,textAlign:"center"}}>Joriy ovozlar</div>
+              {[{label:"✓ Roziman",cls:"yes",count:voteYes,bg:"linear-gradient(90deg,#10b981,#34d399)",col:"#34d399"},
+                {label:"✗ Rozi emas",cls:"no",count:voteNo,bg:"linear-gradient(90deg,#dc2626,#f87171)",col:"#f87171"}].map(v=>(
+                <div key={v.cls} style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+                  <span style={{fontSize:13,fontWeight:700,width:90,textAlign:"right",color:v.col}}>{v.label}</span>
+                  <div style={{flex:1,height:12,borderRadius:999,background:"rgba(255,255,255,0.08)",overflow:"hidden"}}>
+                    <div style={{height:"100%",borderRadius:999,background:v.bg,
+                      width:totalVoters>0?(v.count/totalVoters*100)+"%":"0%",transition:"width 0.4s"}}/>
+                  </div>
+                  <span style={{fontSize:14,fontWeight:900,color:v.col,width:28}}>{v.count}</span>
+                </div>
+              ))}
+              {waitingCount>0&&<div style={{textAlign:"center",fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:6}}>
+                ⏳ {waitingCount} ta o'yinchi hali ovoz bermadi
+              </div>}
+            </div>
+
+            {!myVoted ? (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                <button onClick={()=>submitVote(true)} style={{padding:18,borderRadius:14,
+                  background:"linear-gradient(135deg,#166534,#10b981)",color:"#fff",fontSize:18,
+                  fontWeight:900,border:"none",cursor:"pointer",boxShadow:"0 0 28px rgba(34,197,94,0.4)"}}>
+                  ✅ Roziman
+                </button>
+                <button onClick={()=>submitVote(false)} style={{padding:18,borderRadius:14,
+                  background:"linear-gradient(135deg,#991b1b,#ef4444)",color:"#fff",fontSize:18,
+                  fontWeight:900,border:"none",cursor:"pointer",boxShadow:"0 0 28px rgba(239,68,68,0.4)"}}>
+                  ❌ Rozi emasman
+                </button>
+              </div>
+            ) : (
+              <div style={{textAlign:"center",marginBottom:14,padding:"14px 20px",borderRadius:14,
+                background:"rgba(103,232,249,0.08)",border:"1px solid rgba(103,232,249,0.25)",
+                color:"#67e8f9",fontWeight:700,fontSize:16}}>
+                ✅ Ovozingiz qabul qilindi.
+              </div>
+            )}
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <button onClick={()=>resolveAppeal(true)} style={{padding:"12px 8px",borderRadius:12,
+                background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.4)",
+                color:"#34d399",fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:"0.05em"}}>
+                ✓ Boshlovchi: Qabul
+              </button>
+              <button onClick={()=>resolveAppeal(false)} style={{padding:"12px 8px",borderRadius:12,
+                background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.4)",
+                color:"#f87171",fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:"0.05em"}}>
+                ✗ Boshlovchi: Rad
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SOLO SCREEN ─────────────────────────────────────────────
+// Yakkalik o'yin: faqat yozma javob, og'zaki yo'q
+function SoloScreen({ onBack }) {
+  const [phase, setPhase] = useState("name"); // name | difficulty | playing | result
+  const [name, setName] = useState("");
+  const [difficulty, setDifficulty] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [idx, setIdx] = useState(0);
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState(null); // null | "correct" | "wrong"
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const inputRef = useRef(null);
+
+  const DIFFICULTY_MAP = { "Oson": 1, "O'rta": 2, "Qiyin": 3 };
+  const TIME_MAP = { "Oson": 30, "O'rta": 20, "Qiyin": 12 };
+  const [timeLeft, setTimeLeft] = useState(30);
+  const timerRef = useRef(null);
+
+  const startTimer = (sec) => {
+    clearInterval(timerRef.current);
+    setTimeLeft(sec);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(p => {
+        if (p <= 1) {
+          clearInterval(timerRef.current);
+          handleTimeout();
+          return 0;
+        }
+        return p - 1;
+      });
+    }, 1000);
+  };
+
+  const handleTimeout = () => {
+    setFeedback("timeout");
+    setShowAnswer(true);
+    setWrongCount(w => w + 1);
+  };
+
+  const startGame = (diff) => {
+    clearInterval(timerRef.current);
+    const allPkgs = loadPackages();
+    const allQ = allPkgs.flatMap(p=>p.questions);
+    // Shuffle
+    const shuffled = [...allQ].sort(() => Math.random() - 0.5);
+    setQuestions(shuffled);
+    setDifficulty(diff);
+    setIdx(0);
+    setScore(0);
+    setWrongCount(0);
+    setFeedback(null);
+    setShowAnswer(false);
+    setAnswer("");
+    setPhase("playing");
+    setTimeout(() => startTimer(TIME_MAP[diff]), 100);
+  };
+
+  useEffect(() => {
+    if (phase === "playing" && !feedback) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [idx, phase, feedback]);
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  const normalize = s => s.trim().toLowerCase().replace(/[^a-z0-9а-яёўқғҳ\s]/gi, "");
+
+  const checkAnswer = () => {
+    if (!answer.trim() || feedback) return;
+    clearInterval(timerRef.current);
+    const q = questions[idx];
+    const correct = normalize(answer) === normalize(q.a) ||
+      normalize(q.a).includes(normalize(answer)) ||
+      normalize(answer).includes(normalize(q.a));
+    setFeedback(correct ? "correct" : "wrong");
+    setShowAnswer(true);
+    if (correct) setScore(s => s + q.price);
+    else setWrongCount(w => w + 1);
+  };
+
+  const nextQuestion = () => {
+    clearInterval(timerRef.current);
+    const next = idx + 1;
+    if (next >= questions.length) {
+      setPhase("result");
+    } else {
+      setIdx(next);
+      setAnswer("");
+      setFeedback(null);
+      setShowAnswer(false);
+      setTimeout(() => startTimer(TIME_MAP[difficulty]), 100);
+    }
+  };
+
+  const timerPct = (timeLeft / TIME_MAP[difficulty]) * 100;
+  const timerCol = timeLeft > TIME_MAP[difficulty] * 0.6 ? "#10b981" : timeLeft > TIME_MAP[difficulty] * 0.3 ? "#f59e0b" : "#ef4444";
+
+  if (phase === "name") return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:420,
+        background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",
+        borderRadius:24,padding:36,backdropFilter:"blur(16px)",textAlign:"center"}}>
+        <div style={{fontSize:44,marginBottom:10}}>🎮</div>
+        <h2 style={{color:"#fff",fontSize:24,fontWeight:900,letterSpacing:"0.1em",marginBottom:6}}>YAKKALIK O'YIN</h2>
+        <p style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginBottom:24}}>Ismingizni kiriting</p>
+        <input value={name} onChange={e=>setName(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&name.trim()&&setPhase("difficulty")}
+          placeholder="Ismingiz..." autoFocus
+          style={{width:"100%",padding:"14px 18px",borderRadius:12,fontSize:16,color:"#fff",
+            background:"rgba(255,255,255,0.1)",border:"1px solid rgba(103,232,249,0.4)",
+            outline:"none",marginBottom:16,textAlign:"center"}}/>
+        <button onClick={()=>name.trim()&&setPhase("difficulty")}
+          style={{width:"100%",padding:14,borderRadius:12,fontWeight:900,fontSize:15,
+            letterSpacing:"0.1em",cursor:"pointer",border:"none",
+            background:"linear-gradient(135deg,#2563eb,#06b6d4)",color:"#fff",
+            boxShadow:"0 0 20px rgba(37,99,235,0.4)",marginBottom:12}}>
+          DAVOM ETISH →
+        </button>
+        <button onClick={onBack} style={{width:"100%",padding:"10px",borderRadius:10,
+          background:"transparent",border:"1px solid rgba(255,255,255,0.15)",
+          color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+          ← Orqaga
+        </button>
+      </div>
+    </div>
+  );
+
+  if (phase === "difficulty") return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:420,
+        background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",
+        borderRadius:24,padding:36,backdropFilter:"blur(16px)",textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:10}}>🏆</div>
+        <p style={{color:"#67e8f9",fontSize:22,fontWeight:900,marginBottom:6}}>Xush kelibsiz, {name}!</p>
+        <p style={{color:"rgba(255,255,255,0.5)",fontSize:14,marginBottom:28}}>Qiyinlik darajasini tanlang</p>
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
+          {[
+            {d:"Oson",emoji:"🟢",desc:"30 soniya, oson savollar"},
+            {d:"O'rta",emoji:"🟡",desc:"20 soniya, o'rta savollar"},
+            {d:"Qiyin",emoji:"🔴",desc:"12 soniya, qiyin savollar"},
+          ].map(({d,emoji,desc})=>(
+            <button key={d} onClick={()=>startGame(d)}
+              style={{padding:"16px 20px",borderRadius:14,fontWeight:800,fontSize:16,
+                cursor:"pointer",border:"1px solid rgba(255,255,255,0.2)",
+                background:"rgba(255,255,255,0.07)",color:"#fff",
+                display:"flex",alignItems:"center",gap:12,textAlign:"left",transition:"all 0.15s"}}>
+              <span style={{fontSize:22}}>{emoji}</span>
+              <div>
+                <div>{d} daraja</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",fontWeight:500,marginTop:2}}>{desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>setPhase("name")} style={{width:"100%",padding:"10px",borderRadius:10,
+          background:"transparent",border:"1px solid rgba(255,255,255,0.15)",
+          color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+          ← Orqaga
+        </button>
+      </div>
+    </div>
+  );
+
+  if (phase === "playing" && questions.length > 0) {
+    const q = questions[idx];
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",
+        justifyContent:"center",
+        background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",
+        padding:24,position:"relative"}}>
+        <Stars/>
+        <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:560}}>
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:13}}>
+              {name} · <span style={{color:"#fde047",fontWeight:900}}>{score} ball</span>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:13}}>
+              {idx+1} / {questions.length}
+            </div>
+          </div>
+
+          {/* Timer bar */}
+          {!feedback && (
+            <div style={{marginBottom:20}}>
+              <div style={{height:8,borderRadius:999,background:"rgba(255,255,255,0.1)",overflow:"hidden",marginBottom:4}}>
+                <div style={{height:"100%",borderRadius:999,background:timerCol,
+                  width:timerPct+"%",transition:"width 1s linear"}}/>
+              </div>
+              <div style={{textAlign:"center",fontSize:22,fontWeight:900,color:timerCol}}>{timeLeft}s</div>
+            </div>
+          )}
+
+          {/* Question card */}
+          <div style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(103,232,249,0.2)",
+            borderRadius:24,padding:32,marginBottom:24,textAlign:"center"}}>
+            <div style={{marginBottom:12,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#67e8f9",fontWeight:700,letterSpacing:"0.2em",
+                background:"rgba(103,232,249,0.1)",padding:"3px 12px",borderRadius:999}}>{q.topic}</span>
+              <span style={{fontSize:11,color:"#fde047",fontWeight:900,
+                background:"rgba(253,224,71,0.1)",padding:"3px 12px",borderRadius:999}}>{q.price} ball</span>
+            </div>
+            <p style={{fontSize:20,fontWeight:700,color:"#fff",lineHeight:1.5}}>{q.q}</p>
+          </div>
+
+          {/* Answer input */}
+          {!feedback ? (
+            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+              <input ref={inputRef} value={answer} onChange={e=>setAnswer(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&checkAnswer()}
+                placeholder="✍️ Javobingizni yozing..."
+                style={{flex:1,padding:"16px 20px",borderRadius:14,fontSize:17,color:"#fff",
+                  background:"rgba(255,255,255,0.1)",border:"2px solid rgba(103,232,249,0.5)",
+                  outline:"none",boxShadow:"0 0 20px rgba(103,232,249,0.12)"}}/>
+              <button onClick={checkAnswer} disabled={!answer.trim()}
+                style={{padding:"16px 22px",borderRadius:14,fontWeight:900,fontSize:15,
+                  cursor:"pointer",border:"none",
+                  background:answer.trim()?"linear-gradient(135deg,#06b6d4,#10b981)":"rgba(255,255,255,0.1)",
+                  color:"#fff",whiteSpace:"nowrap",opacity:answer.trim()?1:0.4,
+                  boxShadow:answer.trim()?"0 0 20px rgba(16,185,129,0.4)":"none"}}>
+                YUBORISH ➤
+              </button>
+            </div>
+          ) : (
+            <div>
+              {/* Feedback */}
+              <div style={{textAlign:"center",padding:"20px 24px",borderRadius:20,marginBottom:18,
+                background:feedback==="correct"?"rgba(16,185,129,0.15)":feedback==="timeout"?"rgba(245,158,11,0.15)":"rgba(239,68,68,0.15)",
+                border:`1px solid ${feedback==="correct"?"rgba(16,185,129,0.4)":feedback==="timeout"?"rgba(245,158,11,0.4)":"rgba(239,68,68,0.4)"}`}}>
+                <div style={{fontSize:36,marginBottom:8}}>
+                  {feedback==="correct"?"✅":feedback==="timeout"?"⏰":"❌"}
+                </div>
+                <div style={{fontSize:20,fontWeight:900,color:feedback==="correct"?"#34d399":feedback==="timeout"?"#fde047":"#f87171",marginBottom:6}}>
+                  {feedback==="correct"?`+${q.price} ball!`:feedback==="timeout"?"Vaqt tugadi!":"Noto'g'ri!"}
+                </div>
+                {feedback!=="correct"&&(
+                  <div style={{color:"rgba(255,255,255,0.6)",fontSize:14}}>
+                    To'g'ri javob: <span style={{color:"#67e8f9",fontWeight:700}}>{q.a}</span>
+                  </div>
+                )}
+                {feedback==="wrong"&&answer&&(
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginTop:4}}>
+                    Sizning javobingiz: {answer}
+                  </div>
+                )}
+              </div>
+              <button onClick={nextQuestion}
+                style={{width:"100%",padding:16,borderRadius:14,fontWeight:900,fontSize:16,
+                  cursor:"pointer",border:"none",
+                  background:"linear-gradient(135deg,#2563eb,#06b6d4)",color:"#fff",
+                  boxShadow:"0 0 20px rgba(37,99,235,0.4)",letterSpacing:"0.08em"}}>
+                {idx+1 >= questions.length ? "🏁 NATIJALAR" : "KEYINGI SAVOL →"}
+              </button>
+            </div>
+          )}
+
+          {/* Progress dots */}
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:20,flexWrap:"wrap"}}>
+            {questions.map((_,i)=>(
+              <div key={i} style={{width:8,height:8,borderRadius:"50%",
+                background:i<idx?"rgba(103,232,249,0.6)":i===idx?"#67e8f9":"rgba(255,255,255,0.15)"}}/>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "result") {
+    const total = questions.reduce((s,q)=>s+q.price,0);
+    const pct = total > 0 ? Math.round(score/total*100) : 0;
+    const correct = questions.length - wrongCount;
+    return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+        background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",padding:24,position:"relative"}}>
+        <Stars/>
+        <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:460,
+          background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",
+          borderRadius:24,padding:36,backdropFilter:"blur(16px)",textAlign:"center"}}>
+          <div style={{fontSize:56,marginBottom:12}}>
+            {pct>=80?"🏆":pct>=50?"🎯":"📚"}
+          </div>
+          <h2 style={{color:"#fff",fontSize:26,fontWeight:900,marginBottom:6}}>O'YIN TUGADI!</h2>
+          <p style={{color:"#67e8f9",fontSize:18,fontWeight:700,marginBottom:24}}>{name}</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:24}}>
+            {[
+              {label:"Ball",val:score,color:"#fde047"},
+              {label:"Foiz",val:pct+"%",color:"#10b981"},
+              {label:"To'g'ri",val:correct,color:"#34d399"},
+              {label:"Noto'g'ri",val:wrongCount,color:"#f87171"},
+            ].map(x=>(
+              <div key={x.label} style={{padding:16,borderRadius:16,
+                background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)"}}>
+                <div style={{fontSize:28,fontWeight:900,color:x.color}}>{x.val}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4}}>{x.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>{ setPhase("difficulty"); setAnswer(""); setFeedback(null); }}
+              style={{width:"100%",padding:14,borderRadius:12,fontWeight:900,fontSize:15,
+                cursor:"pointer",border:"none",
+                background:"linear-gradient(135deg,#2563eb,#06b6d4)",color:"#fff",
+                boxShadow:"0 0 20px rgba(37,99,235,0.4)"}}>
+              🔄 QAYTA O'YNASH
+            </button>
+            <button onClick={onBack} style={{width:"100%",padding:"10px",borderRadius:10,
+              background:"transparent",border:"1px solid rgba(255,255,255,0.15)",
+              color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+              ← Bosh menyu
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ─── PIN SCREEN ───────────────────────────────────────────────
+function PinScreen({ onBack }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [joined, setJoined] = useState(false);
+
+  const handleJoin = () => {
+    if (pin.length < 4) { setError("PIN-kod kamida 4 raqam bo'lishi kerak!"); return; }
+    setError("");
+    setJoined(true);
+  };
+
+  if (joined) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:400,
+        background:"rgba(255,255,255,0.05)",border:"1px solid rgba(16,185,129,0.3)",
+        borderRadius:24,padding:36,backdropFilter:"blur(16px)",textAlign:"center"}}>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"rgba(16,185,129,0.15)",
+          border:"2px solid rgba(16,185,129,0.5)",display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:32,margin:"0 auto 20px"}}>🔗</div>
+        <h2 style={{color:"#34d399",fontSize:22,fontWeight:900,marginBottom:10}}>Ulanyapti...</h2>
+        <p style={{color:"rgba(255,255,255,0.5)",fontSize:14,marginBottom:8}}>PIN-kod:</p>
+        <div style={{fontSize:32,fontWeight:900,color:"#67e8f9",letterSpacing:"0.4em",
+          marginBottom:24,fontFamily:"monospace"}}>{pin}</div>
+        <p style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginBottom:24,lineHeight:1.6}}>
+          Xona egasi o'yinni boshlashini kuting.<br/>
+          Onlayn xona hozircha demo rejimida ishlaydi.
+        </p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button onClick={()=>{setJoined(false);setPin("");}}
+            style={{width:"100%",padding:12,borderRadius:12,fontWeight:700,fontSize:14,
+              cursor:"pointer",border:"1px solid rgba(103,232,249,0.3)",
+              background:"rgba(103,232,249,0.08)",color:"#67e8f9"}}>
+            Boshqa xona
+          </button>
+          <button onClick={onBack} style={{width:"100%",padding:"10px",borderRadius:10,
+            background:"transparent",border:"1px solid rgba(255,255,255,0.15)",
+            color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+            ← Orqaga
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:380,
+        background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",
+        borderRadius:24,padding:36,backdropFilter:"blur(16px)",textAlign:"center"}}>
+        <div style={{fontSize:44,marginBottom:10}}>🔑</div>
+        <h2 style={{color:"#fff",fontSize:22,fontWeight:900,letterSpacing:"0.1em",marginBottom:6}}>PIN-KOD ORQALI KIRISH</h2>
+        <p style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginBottom:28}}>Xona PIN-kodini kiriting</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
+          {[1,2,3,4,5,6,7,8,9,"✕",0,"⌫"].map(k=>(
+            <button key={k} onClick={()=>{
+              if(k==="✕"){setPin("");setError("");}
+              else if(k==="⌫"){setPin(p=>p.slice(0,-1));setError("");}
+              else if(pin.length<6){setPin(p=>p+k);setError("");}
+            }} style={{padding:"16px 8px",borderRadius:12,fontWeight:900,fontSize:20,cursor:"pointer",
+              border:"1px solid rgba(255,255,255,0.15)",
+              background:k==="✕"?"rgba(239,68,68,0.15)":k==="⌫"?"rgba(245,158,11,0.15)":"rgba(255,255,255,0.08)",
+              color:k==="✕"?"#f87171":k==="⌫"?"#fde047":"#fff",transition:"all 0.15s"}}>
+              {k}
+            </button>
+          ))}
+        </div>
+        <div style={{fontSize:32,letterSpacing:"0.4em",color:"#67e8f9",fontWeight:900,
+          minHeight:48,marginBottom:16,fontFamily:"monospace"}}>
+          {pin ? "●".repeat(pin.length) : <span style={{color:"rgba(255,255,255,0.2)",fontSize:14}}>_ _ _ _ _ _</span>}
+        </div>
+        {error&&<p style={{color:"#f87171",fontSize:13,marginBottom:12}}>{error}</p>}
+        <button onClick={handleJoin} style={{width:"100%",padding:14,borderRadius:12,fontWeight:900,
+          fontSize:15,letterSpacing:"0.1em",cursor:"pointer",border:"none",
+          background:"linear-gradient(135deg,#2563eb,#06b6d4)",color:"#fff",
+          boxShadow:"0 0 20px rgba(37,99,235,0.4)",marginBottom:10}}>
+          KIRISH →
+        </button>
+        <button onClick={onBack} style={{width:"100%",padding:"10px",borderRadius:10,
+          background:"transparent",border:"1px solid rgba(255,255,255,0.15)",
+          color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+          ← Orqaga
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── HELP SCREEN ──────────────────────────────────────────────
+function HelpScreen({ onBack }) {
+  const steps = [
+    {icon:"🎯",title:"O'yin maqsadi",desc:"Eng ko'p ball to'plagan o'yinchi g'olib bo'ladi. Savollar turli mavzular va qiyinlik darajalarda beriladi."},
+    {icon:"🔴",title:"Buzzer bosish",desc:"Savol ko'rsatilgandan so'ng BUZZER tugmasini bosing. Kim birinchi bossa, o'sha javob yozadi."},
+    {icon:"✍️",title:"Javob yozish",desc:"Buzzer bosgandan so'ng javob yozish maydoni ochiladi. Javobingizni yozing va YUBORISH tugmasini bosing yoki ENTER bosing."},
+    {icon:"✅",title:"Boshlovchi qarori",desc:"Boshlovchi javobni to'g'ri yoki noto'g'ri deb belgilaydi. To'g'ri javob uchun ball qo'shiladi, noto'g'ri uchun ayriladi."},
+    {icon:"⚠️",title:"Apellatsiya",desc:"Noto'g'ri deb topilgan javob aslida to'g'ri bo'lsa, apellatsiya qilishingiz mumkin. Boshqa o'yinchilar ovoz beradi."},
+    {icon:"🎮",title:"Yakkalik o'yin",desc:"Yolg'iz o'ynash uchun: ismingizni kiriting, qiyinlik darajasini tanlang va savollarga yozma javob bering. Timer mavjud!"},
+    {icon:"✏️",title:"Savol muharriri",desc:"O'z savollaringizni qo'shishingiz mumkin. Muharrirsaqlangan savollar yakkalik o'yinda ham ishlatiladi."},
+    {icon:"🏆",title:"G'alaba",desc:"Barcha savollar tugagach, eng ko'p ball to'plagan o'yinchi g'olib e'lon qilinadi."},
+  ];
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",
+      padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,maxWidth:640,margin:"0 auto",paddingTop:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:32}}>
+          <button onClick={onBack} style={{padding:"10px 18px",borderRadius:10,background:"rgba(255,255,255,0.07)",
+            border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.7)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+            ← Orqaga
+          </button>
+          <div>
+            <h2 style={{color:"#fff",fontSize:22,fontWeight:900,letterSpacing:"0.08em"}}>❓ QANDAY O'YNAYMAN?</h2>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:2}}>SIGame o'yini qoidalari</p>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {steps.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:16,alignItems:"flex-start",
+              background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",
+              borderRadius:16,padding:"18px 20px",animation:`fadeUp 0.4s ease ${i*0.06}s both`}}>
+              <div style={{fontSize:28,flexShrink:0,width:44,textAlign:"center"}}>{s.icon}</div>
+              <div>
+                <h3 style={{color:"#67e8f9",fontWeight:900,fontSize:15,marginBottom:6,letterSpacing:"0.05em"}}>{s.title}</h3>
+                <p style={{color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6}}>{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:20,padding:"16px 20px",borderRadius:16,
+          background:"rgba(253,224,71,0.08)",border:"1px solid rgba(253,224,71,0.2)",textAlign:"center"}}>
+          <p style={{color:"#fde047",fontSize:13,fontWeight:700}}>💡 Maslahat: ENTER tugmasi javobni yuboradi! Og'zaki javob yo'q — faqat yozma!</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EDITOR SCREEN ────────────────────────────────────────────
+function EditorScreen({ onBack }) {
+  const [packages, setPackages] = useState(()=>loadPackages());
+  const [activePkgId, setActivePkgId] = useState(()=>{ const p=loadPackages(); return p[0]?.id||"default"; });
+  const [form, setForm] = useState({topic:"",q:"",a:"",price:100});
+  const [editing, setEditing] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [newPkgName, setNewPkgName] = useState("");
+  const [showNewPkg, setShowNewPkg] = useState(false);
+
+  const activePkg = packages.find(p=>p.id===activePkgId) || packages[0];
+  const questions = activePkg ? activePkg.questions : [];
+
+  const updatePkg = (pkgId, newQuestions) => {
+    const updated = packages.map(p=>p.id===pkgId?{...p,questions:newQuestions}:p);
+    setPackages(updated);
+    savePackages(updated);
+  };
+
+  const createPackage = () => {
+    if (!newPkgName.trim()) return;
+    const newPkg = {id:"pkg_"+Date.now(), name:newPkgName.trim(), questions:[]};
+    const updated = [...packages, newPkg];
+    setPackages(updated);
+    savePackages(updated);
+    setActivePkgId(newPkg.id);
+    setNewPkgName("");
+    setShowNewPkg(false);
+  };
+
+  const deletePackage = (pkgId) => {
+    if (packages.length<=1) { alert("Kamida bitta paket bo'lishi kerak!"); return; }
+    if (!window.confirm("Bu paketni o'chirasizmi?")) return;
+    const updated = packages.filter(p=>p.id!==pkgId);
+    setPackages(updated);
+    savePackages(updated);
+    setActivePkgId(updated[0].id);
+  };
+
+  const save = () => {
+    if (!form.topic||!form.q||!form.a) return;
+    let updated;
+    if (editing!==null) {
+      updated = questions.map(x=>x.id===editing?{...form,id:editing}:x);
+      setEditing(null);
+    } else {
+      updated = [...questions,{...form,id:Date.now()}];
+    }
+    updatePkg(activePkgId, updated);
+    setForm({topic:"",q:"",a:"",price:100});
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2000);
+  };
+
+  const deleteQ = (id) => {
+    const updated = questions.filter(x=>x.id!==id);
+    updatePkg(activePkgId, updated);
+  };
+
+  const resetToDefault = () => {
+    if (!window.confirm("Standart paketni tiklaysizmi?")) return;
+    const updated = packages.map(p=>p.id==="default"?{...p,questions:DEFAULT_QUESTIONS}:p);
+    const hasDefault = packages.find(p=>p.id==="default");
+    const final = hasDefault ? updated : [{...DEFAULT_PACKAGE}, ...updated];
+    setPackages(final);
+    savePackages(final);
+    setActivePkgId("default");
+    setEditing(null);
+    setForm({topic:"",q:"",a:"",price:100});
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0a0f2e 0%,#0d1b4b 50%,#071028 100%)",
+      padding:24,position:"relative"}}>
+      <Stars/>
+      <div style={{position:"relative",zIndex:10,maxWidth:700,margin:"0 auto",paddingTop:10}}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20,flexWrap:"wrap"}}>
+          <button onClick={onBack} style={{padding:"10px 18px",borderRadius:10,background:"rgba(255,255,255,0.07)",
+            border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.7)",fontSize:13,cursor:"pointer",fontWeight:600}}>
+            ← Orqaga
+          </button>
+          <div style={{flex:1}}>
+            <h2 style={{color:"#fff",fontSize:22,fontWeight:900,letterSpacing:"0.08em"}}>✏️ SAVOL MUHARRIRI</h2>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:2}}>{packages.length} ta paket · {questions.length} ta savol</p>
+          </div>
+          <button onClick={resetToDefault}
+            style={{padding:"8px 14px",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer",
+              background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.3)",color:"#f87171"}}>
+            🔄 Standartga qaytarish
+          </button>
+        </div>
+
+        {/* Package selector */}
+        <div style={{marginBottom:20,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(103,232,249,0.15)",
+          borderRadius:16,padding:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <span style={{color:"#67e8f9",fontWeight:900,fontSize:13,letterSpacing:"0.1em"}}>📦 PAKETLAR</span>
+            <button onClick={()=>setShowNewPkg(p=>!p)}
+              style={{padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                background:"rgba(37,99,235,0.25)",border:"1px solid rgba(37,99,235,0.4)",color:"#60a5fa"}}>
+              ➕ Yangi paket
+            </button>
+          </div>
+          {showNewPkg&&(
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              <input value={newPkgName} onChange={e=>setNewPkgName(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&createPackage()}
+                placeholder="Paket nomi (masalan: Matematika olimpiadasi)"
+                style={{flex:1,padding:"10px 14px",borderRadius:10,background:"rgba(255,255,255,0.08)",
+                  border:"1px solid rgba(103,232,249,0.4)",color:"#fff",fontSize:13,outline:"none"}}/>
+              <button onClick={createPackage}
+                style={{padding:"10px 16px",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer",
+                  background:"linear-gradient(135deg,#2563eb,#06b6d4)",border:"none",color:"#fff"}}>
+                Yaratish
+              </button>
+            </div>
+          )}
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {packages.map(pkg=>(
+              <div key={pkg.id} style={{display:"flex",alignItems:"center",gap:6,
+                padding:"7px 14px",borderRadius:999,cursor:"pointer",
+                background:activePkgId===pkg.id?"rgba(37,99,235,0.35)":"rgba(255,255,255,0.06)",
+                border:activePkgId===pkg.id?"1px solid rgba(59,130,246,0.6)":"1px solid rgba(255,255,255,0.12)",
+                transition:"all 0.2s"}}
+                onClick={()=>{setActivePkgId(pkg.id);setEditing(null);setForm({topic:"",q:"",a:"",price:100});}}>
+                <span style={{color:activePkgId===pkg.id?"#fff":"rgba(255,255,255,0.6)",fontSize:12,fontWeight:700}}>{pkg.name}</span>
+                <span style={{color:"rgba(255,255,255,0.3)",fontSize:11}}>({pkg.questions.length})</span>
+                {pkg.id!=="default"&&(
+                  <button onClick={e=>{e.stopPropagation();deletePackage(pkg.id);}}
+                    style={{background:"none",border:"none",color:"rgba(239,68,68,0.6)",cursor:"pointer",fontSize:14,lineHeight:1,padding:"0 2px"}}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {saved&&(
+          <div style={{marginBottom:14,padding:"12px 18px",borderRadius:12,
+            background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.4)",
+            color:"#34d399",fontWeight:700,fontSize:14,textAlign:"center",animation:"fadeUp 0.3s ease"}}>
+            ✅ Saqlandi! Paket: <b>{activePkg?.name}</b>
+          </div>
+        )}
+
+        {/* Form */}
+        <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(103,232,249,0.2)",
+          borderRadius:18,padding:22,marginBottom:20}}>
+          <h3 style={{color:"#67e8f9",fontSize:13,fontWeight:900,letterSpacing:"0.2em",
+            textTransform:"uppercase",marginBottom:16}}>
+            {editing!==null?"✏️ Savolni tahrirlash":"➕ Yangi savol qo'shish"} — <span style={{color:"#fde047"}}>{activePkg?.name}</span>
+          </h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+            <input placeholder="Mavzu (masalan: Tarix)" value={form.topic}
+              onChange={e=>setForm(p=>({...p,topic:e.target.value}))}
+              style={{padding:"11px 14px",borderRadius:10,background:"rgba(255,255,255,0.08)",
+                border:"1px solid rgba(255,255,255,0.15)",color:"#fff",fontSize:13,outline:"none"}}/>
+            <select value={form.price} onChange={e=>setForm(p=>({...p,price:Number(e.target.value)}))}
+              style={{padding:"11px 14px",borderRadius:10,background:"#0d1b4b",
+                border:"1px solid rgba(255,255,255,0.15)",color:"#fde047",fontSize:13,outline:"none",fontWeight:700}}>
+              {[100,200,300,400,500].map(v=><option key={v} value={v}>{v} ball</option>)}
+            </select>
+          </div>
+          <input placeholder="Savol matni..." value={form.q}
+            onChange={e=>setForm(p=>({...p,q:e.target.value}))}
+            style={{width:"100%",padding:"11px 14px",borderRadius:10,background:"rgba(255,255,255,0.08)",
+              border:"1px solid rgba(255,255,255,0.15)",color:"#fff",fontSize:13,outline:"none",marginBottom:12}}/>
+          <input placeholder="To'g'ri javob..." value={form.a}
+            onChange={e=>setForm(p=>({...p,a:e.target.value}))}
+            onKeyDown={e=>e.key==="Enter"&&save()}
+            style={{width:"100%",padding:"11px 14px",borderRadius:10,background:"rgba(255,255,255,0.08)",
+              border:"1px solid rgba(255,255,255,0.15)",color:"#fff",fontSize:13,outline:"none",marginBottom:14}}/>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={save} style={{flex:1,padding:"12px",borderRadius:10,fontWeight:900,
+              fontSize:14,cursor:"pointer",border:"none",
+              background:"linear-gradient(135deg,#2563eb,#06b6d4)",color:"#fff"}}>
+              {editing!==null?"💾 Saqlash":"➕ Qo'shish"}
+            </button>
+            {editing!==null&&(
+              <button onClick={()=>{setEditing(null);setForm({topic:"",q:"",a:"",price:100});}}
+                style={{padding:"12px 18px",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer",
+                  border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.06)",color:"rgba(255,255,255,0.6)"}}>
+                Bekor qilish
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Question list */}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {questions.map((qn)=>(
+            <div key={qn.id} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.09)",
+              borderRadius:14,padding:"14px 18px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,fontWeight:900,padding:"3px 10px",borderRadius:999,
+                background:"rgba(253,224,71,0.15)",color:"#fde047",border:"1px solid rgba(253,224,71,0.3)",flexShrink:0}}>
+                {qn.price}
+              </span>
+              <span style={{fontSize:12,color:"#67e8f9",fontWeight:700,flexShrink:0}}>{qn.topic}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:3,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{qn.q}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>✓ {qn.a}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button onClick={()=>{setEditing(qn.id);setForm({topic:qn.topic,q:qn.q,a:qn.a,price:qn.price});}}
+                  style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                    background:"rgba(37,99,235,0.2)",border:"1px solid rgba(37,99,235,0.4)",color:"#60a5fa"}}>
+                  ✏️
+                </button>
+                <button onClick={()=>deleteQ(qn.id)}
+                  style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                    background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",color:"#f87171"}}>
+                  🗑️
+                </button>
+              </div>
+            </div>
+          ))}
+          {questions.length===0&&(
+            <div style={{textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:14,padding:"32px 0"}}>
+              Hali savol yo'q. Yuqorida yangi savol qo'shing!
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT APP ─────────────────────────────────────────────────
+function App() {
+  const [screen, setScreen] = useState("menu");
+  const [showModal, setShowModal] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [selectedPackageName, setSelectedPackageName] = useState("");
+
+  return (
+    <>
+      <style>{`
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes twinkle{0%,100%{opacity:0.15;}50%{opacity:0.6;}}
+        @keyframes pulseGlow{0%,100%{box-shadow:0 0 25px rgba(59,130,246,0.35);}50%{box-shadow:0 0 50px rgba(59,130,246,0.65);}}
+        @keyframes buzzPulse{0%,100%{box-shadow:0 0 50px rgba(239,68,68,0.7);}50%{box-shadow:0 0 80px rgba(239,68,68,1);}}
+        @keyframes sendPulse{0%,100%{box-shadow:0 0 20px rgba(16,185,129,0.5);}50%{box-shadow:0 0 40px rgba(16,185,129,0.85);}}
+        @keyframes neonFlash{0%,100%{border-color:rgba(239,68,68,0.4);box-shadow:0 0 20px rgba(239,68,68,0.2);}50%{border-color:rgba(249,115,22,1);box-shadow:0 0 40px rgba(249,115,22,0.6);}}
+        .si-btn-open{padding:14px 26px;border-radius:14px;background:rgba(37,99,235,0.8);color:#fff;font-size:14px;font-weight:900;letter-spacing:0.12em;border:none;cursor:pointer;animation:pulseGlow 2s infinite;transition:background 0.2s;}
+        .si-btn-open:hover{background:#3b82f6;}
+        .si-btn-send{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 22px;border-radius:14px;background:linear-gradient(135deg,#06b6d4 0%,#10b981 100%);color:#fff;font-size:14px;font-weight:900;letter-spacing:0.1em;border:none;cursor:pointer;animation:sendPulse 1.8s infinite;transition:transform 0.15s,opacity 0.2s;white-space:nowrap;}
+        .si-btn-send:hover:not(:disabled){transform:scale(1.05);}
+        .si-btn-send:disabled{background:linear-gradient(135deg,#374151,#4b5563);animation:none;box-shadow:none;cursor:not-allowed;opacity:0.6;}
+        .si-buzzer{width:170px;height:170px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;font-size:22px;font-weight:900;letter-spacing:0.15em;border:none;cursor:pointer;animation:buzzPulse 1.5s infinite;transition:transform 0.15s;}
+        .si-buzzer:hover:not(:disabled){transform:scale(1.06);}
+        .si-buzzer:disabled{background:linear-gradient(135deg,#6b7280,#374151);animation:none;box-shadow:none;cursor:not-allowed;}
+        .slider-thumb{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;outline:none;cursor:pointer;width:100%;}
+        .slider-thumb::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#f59e0b;border:2px solid #fff;cursor:pointer;box-shadow:0 0 8px rgba(245,158,11,0.7);}
+        .slider-thumb::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#f59e0b;border:2px solid #fff;cursor:pointer;}
+      `}</style>
+
+      {screen === "menu" && (
+        <MainMenu onAction={(a)=>{
+          if(a==="online"){setShowModal(true);}
+          else if(a==="solo"){setScreen("solo");}
+          else if(a==="pin"){setScreen("pin");}
+          else if(a==="help"){setScreen("help");}
+          else if(a==="editor"){setScreen("editor");}
+        }}/>
+      )}
+      {screen === "game" && <GameBoard onBack={()=>setScreen("menu")} selectedPackageName={selectedPackageName}/>}
+      {screen === "solo" && <SoloScreen onBack={()=>setScreen("menu")}/>}
+      {screen === "pin" && <PinScreen onBack={()=>setScreen("menu")}/>}
+      {screen === "help" && <HelpScreen onBack={()=>setScreen("menu")}/>}
+      {screen === "editor" && <EditorScreen onBack={()=>setScreen("menu")}/>}
+
+      {showModal && (
+        <RoomSettingsModal
+          onClose={()=>setShowModal(false)}
+          onCreate={(s)=>{ setCreated(s); setSelectedPackageName(s.questionPackage); setShowModal(false); setScreen("game"); }}
+        />
+      )}
+
+      {created && screen==="menu" && (
+        <div style={{position:"fixed",bottom:24,right:24,zIndex:50,
+          padding:"12px 24px",borderRadius:14,color:"#fff",fontWeight:700,fontSize:13,
+          background:"linear-gradient(135deg,#1d4ed8,#2563eb)",
+          boxShadow:"0 8px 24px rgba(37,99,235,0.5)",
+          animation:"fadeUp 0.4s ease",letterSpacing:"0.05em",display:"flex",alignItems:"center",gap:12}}>
+          ✅ O'yin yaratildi! <span style={{color:"#fbbf24"}}>{created.questionPackage}</span>
+          <button onClick={()=>setCreated(null)} style={{opacity:0.6,cursor:"pointer",background:"none",border:"none",color:"white",fontSize:18}}>×</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

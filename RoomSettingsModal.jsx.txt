@@ -1,0 +1,698 @@
+import { useState, useRef, useEffect } from "react";
+
+// ============================================================
+// IKONKALAR — SVG asosida, tashqi kutubxonasiz
+// ============================================================
+
+// Papka ikonkasi (Savollar paketi uchun)
+const FolderIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
+// Yopish (X) ikonkasi
+const CloseIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+
+// Pastga ko'rsatuvchi strelka (dropdown uchun)
+const ChevronDown = ({ open }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 flex-shrink-0"
+    style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.25s ease" }}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+);
+
+// Foydalanuvchi ikonkasi
+const UserIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+);
+
+// O'yinchi ikonkasi
+const PlayersIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
+// ============================================================
+// BOSHLANG'ICH HOLAT (Default State)
+// ============================================================
+const defaultRoomSettings = {
+  // Xona tabi
+  questionPackage: "Tasodifiy mavzular",
+  myRole: "o'yinchi",
+  playersCount: 3,
+
+  // Qoidalar tabi
+  gameType: "Klassik",
+  oralGame: false,
+  allowOralChoice: false,
+  controlledGame: false,
+  playAllQuestions: false,
+  falseStarts: true,
+  finalRound: false,
+
+  // Vaqt tabi — sekundlarda
+  timeQuestionSelect: 30,
+  timeTopicSelect: 20,
+  timePassQuestion: 15,
+  timePressButton: 10,
+  timeAnswerAfterPress: 25,
+  timeSpecialQuestion: 40,
+  timeAllAnswer: 30,
+  timeBidding: 15,
+  timeHostDecision: 20,
+};
+
+// ============================================================
+// ASOSIY KOMPONENT: RoomSettingsModal
+// ============================================================
+export default function RoomSettingsModal({ onClose, onCreate }) {
+  // Faol tab holati: "xona" | "qoidalar" | "vaqt"
+  const [activeTab, setActiveTab] = useState("xona");
+  // Barcha sozlamalar holati
+  const [settings, setSettings] = useState(defaultRoomSettings);
+  // Dropdown holatlari
+  const [openDropdown, setOpenDropdown] = useState(null); // "package" | "role" | "gameType"
+
+  // Sahifa yuklaganda animatsiya
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
+
+  // Dropdowndan tashqariga bosilsa yopilsin
+  const modalRef = useRef();
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!e.target.closest("[data-dropdown]")) setOpenDropdown(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Sozlamani yangilash yordamchi funksiyasi
+  const update = (key, value) =>
+    setSettings((prev) => ({ ...prev, [key]: value }));
+
+  // Dropdown almashish
+  const toggleDropdown = (name) =>
+    setOpenDropdown((prev) => (prev === name ? null : name));
+
+  return (
+    /*
+     * Overlay — qorong'i orqa fon, modal ustida
+     */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{
+        background: "rgba(0, 5, 20, 0.85)",
+        backdropFilter: "blur(6px)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.3s ease",
+      }}
+    >
+      {/*
+       * Modal oyna — asosiy kontent qutisi
+       * To'q ko'k fon, ingichka chiziqlar va yumshoq soyalar
+       */}
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-lg flex flex-col rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(160deg, #0d1b4b 0%, #0a1535 60%, #091230 100%)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(100,160,255,0.08)",
+          transform: visible ? "translateY(0) scale(1)" : "translateY(20px) scale(0.97)",
+          transition: "transform 0.35s cubic-bezier(0.34,1.3,0.64,1)",
+          maxHeight: "92vh",
+        }}
+      >
+        {/* ── SARLAVHA QISMI ── */}
+        <ModalHeader activeTab={activeTab} setActiveTab={setActiveTab} onClose={onClose} />
+
+        {/* ── TAB KONTENTI ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.15) transparent" }}>
+          {activeTab === "xona" && (
+            <XonaTab
+              settings={settings}
+              update={update}
+              openDropdown={openDropdown}
+              toggleDropdown={toggleDropdown}
+            />
+          )}
+          {activeTab === "qoidalar" && (
+            <QoidalarTab settings={settings} update={update} />
+          )}
+          {activeTab === "vaqt" && (
+            <VaqtTab settings={settings} update={update} />
+          )}
+        </div>
+
+        {/* ── PASTKI TUGMA QISMI ── */}
+        <ModalFooter onCreate={() => onCreate?.(settings)} />
+      </div>
+
+      {/* Animatsiya stillari */}
+      <style>{`
+        .slider-custom::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: #f59e0b;
+          border: 2px solid #fff;
+          cursor: pointer;
+          box-shadow: 0 0 8px rgba(245,158,11,0.6);
+        }
+        .slider-custom::-moz-range-thumb {
+          width: 18px; height: 18px;
+          border-radius: 50%;
+          background: #f59e0b;
+          border: 2px solid #fff;
+          cursor: pointer;
+        }
+        .slider-custom::-webkit-slider-runnable-track {
+          height: 4px;
+          border-radius: 2px;
+          background: rgba(255,255,255,0.15);
+        }
+        .slider-custom {
+          -webkit-appearance: none;
+          width: 100%; height: 4px;
+          border-radius: 2px;
+          outline: none;
+          cursor: pointer;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ============================================================
+// SARLAVHA KOMPONENTI (Header + Navigation Tabs)
+// ============================================================
+function ModalHeader({ activeTab, setActiveTab, onClose }) {
+  // Tab ro'yxati
+  const tabs = [
+    { id: "xona",    label: "Xona" },
+    { id: "qoidalar",label: "Qoidalar" },
+    { id: "vaqt",    label: "Vaqt" },
+  ];
+
+  return (
+    <div
+      className="flex-shrink-0"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
+    >
+      {/* Sarlavha va yopish tugmasi */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4">
+        <h1 className="text-white text-2xl font-black tracking-wide" style={{ fontFamily: "'Trebuchet MS', sans-serif" }}>
+          Yangi o'yin
+        </h1>
+        {/* X — Yopish tugmasi */}
+        <button
+          onClick={onClose}
+          className="text-white/50 hover:text-white rounded-lg p-1.5 transition-all duration-200"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+          title="Yopish"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      {/* Navigatsiya tablari */}
+      <div className="flex px-6 gap-1 pb-0">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="relative px-5 py-2.5 text-sm font-semibold tracking-wider uppercase transition-all duration-200 rounded-t-lg"
+              style={{
+                color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
+                background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
+                borderBottom: isActive ? "2px solid #f59e0b" : "2px solid transparent",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// XONA TABI KOMPONENTI
+// ============================================================
+function XonaTab({ settings, update, openDropdown, toggleDropdown }) {
+  // Savollar paketi variantlari
+  const packageOptions = [
+    "Tasodifiy mavzular",
+    "Savollar fayli...",
+    "Question library...",
+    "Foydalanuvchi paketlari...",
+    "O'z paketingizni yaratish...",
+  ];
+
+  // Rol variantlari
+  const roleOptions = ["o'yinchi", "boshlovchi", "tomoshabin"];
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── 1. Savollar paketi ── */}
+      <SettingRow
+        label="Savollar paketi"
+        icon={<FolderIcon />}
+        hint="O'yin uchun savol to'plamini tanlang"
+      >
+        <Dropdown
+          name="package"
+          value={settings.questionPackage}
+          options={packageOptions}
+          open={openDropdown === "package"}
+          onToggle={() => toggleDropdown("package")}
+          onSelect={(v) => { update("questionPackage", v); toggleDropdown(null); }}
+        />
+      </SettingRow>
+
+      {/* ── 2. Mening rolim ── */}
+      <SettingRow
+        label="Mening rolim"
+        icon={<UserIcon />}
+        hint="O'yindagi o'z rolingizni belgilang"
+      >
+        <Dropdown
+          name="role"
+          value={settings.myRole}
+          options={roleOptions}
+          open={openDropdown === "role"}
+          onToggle={() => toggleDropdown("role")}
+          onSelect={(v) => { update("myRole", v); toggleDropdown(null); }}
+          capitalize
+        />
+      </SettingRow>
+
+      {/* ── 3. O'yinchilar soni (Slayder) ── */}
+      <SettingRow
+        label="O'yinchilar soni"
+        icon={<PlayersIcon />}
+        hint="Maksimal 12 o'yinchi"
+      >
+        {/* Slayder va dinamik son ko'rsatgichi */}
+        <div className="flex items-center gap-4 w-full">
+          {/* Joriy son — dinamik o'zgaradi */}
+          <div
+            className="flex-shrink-0 w-12 h-10 rounded-lg flex items-center justify-center font-black text-xl text-white"
+            style={{
+              background: "linear-gradient(135deg, #1e40af, #2563eb)",
+              boxShadow: "0 0 12px rgba(37,99,235,0.5)",
+            }}
+          >
+            {settings.playersCount}
+          </div>
+
+          {/* Range input slayder */}
+          <div className="flex-1 relative">
+            <input
+              type="range"
+              min={2}
+              max={12}
+              value={settings.playersCount}
+              onChange={(e) => update("playersCount", Number(e.target.value))}
+              className="slider-custom"
+              style={{
+                background: `linear-gradient(to right,
+                  #2563eb 0%,
+                  #2563eb ${((settings.playersCount - 2) / 10) * 100}%,
+                  rgba(255,255,255,0.15) ${((settings.playersCount - 2) / 10) * 100}%,
+                  rgba(255,255,255,0.15) 100%)`,
+              }}
+            />
+            {/* Min/Max ko'rsatkichlari */}
+            <div className="flex justify-between mt-1">
+              <span className="text-white/30 text-xs">2</span>
+              <span className="text-white/30 text-xs">12</span>
+            </div>
+          </div>
+        </div>
+      </SettingRow>
+    </div>
+  );
+}
+
+// ============================================================
+// QOIDALAR TABI KOMPONENTI
+// ============================================================
+function QoidalarTab({ settings, update }) {
+  const gameTypes = ["Klassik", "Tez o'yin", "Jamoa o'yini", "Turnir"];
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── O'yin turi ── */}
+      <div
+        className="rounded-xl p-4"
+        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <p className="text-white/60 text-xs uppercase tracking-widest mb-3">O'yin turi</p>
+        <div className="flex flex-wrap gap-2">
+          {gameTypes.map((type) => {
+            const isSelected = settings.gameType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => update("gameType", type)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
+                style={{
+                  background: isSelected ? "#1d4ed8" : "rgba(255,255,255,0.07)",
+                  color: isSelected ? "#fff" : "rgba(255,255,255,0.5)",
+                  border: isSelected ? "1px solid rgba(100,160,255,0.5)" : "1px solid rgba(255,255,255,0.1)",
+                  boxShadow: isSelected ? "0 0 12px rgba(29,78,216,0.4)" : "none",
+                }}
+              >
+                {type}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-white/30 text-xs mt-2">
+          {settings.gameType === "Klassik"
+            ? "An'anaviy o'yin qoidalari. Har bir savol uchun belgilangan vaqt ajratiladi."
+            : settings.gameType === "Tez o'yin"
+            ? "Qisqaroq vaqt, tezroq sur'at. Musobaqaviy format."
+            : "Jamoa shaklida o'ynaladi. Har bir guruh birgalikda javob beradi."}
+        </p>
+      </div>
+
+      {/* ── Umumiy qoidalar chekboxlar ── */}
+      <div
+        className="rounded-xl p-4 flex flex-col gap-3"
+        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <p className="text-white/60 text-xs uppercase tracking-widest mb-1">Umumiy qoidalar</p>
+
+        <CheckboxRow
+          checked={settings.oralGame}
+          onChange={(v) => update("oralGame", v)}
+          label="Og'zaki o'yin"
+          hint="O'yinchilar og'zaki javob berishadi"
+        />
+        <Divider />
+        <CheckboxRow
+          checked={settings.allowOralChoice}
+          onChange={(v) => update("allowOralChoice", v)}
+          label="Og'zaki o'yinda o'yinchilarga tanlashga ruxsat"
+          hint="O'yinchilar mavzuni o'zlari tanlashlari mumkin"
+        />
+        <Divider />
+        <CheckboxRow
+          checked={settings.controlledGame}
+          onChange={(v) => update("controlledGame", v)}
+          label="Boshqariladigan o'yin"
+          hint="Boshlovchi har bir bosqichni nazorat qiladi"
+        />
+      </div>
+
+      {/* ── Raund qoidalari ── */}
+      <div
+        className="rounded-xl p-4 flex flex-col gap-3"
+        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <p className="text-white/60 text-xs uppercase tracking-widest mb-1">Raund va Savol</p>
+
+        <CheckboxRow
+          checked={settings.playAllQuestions}
+          onChange={(v) => update("playAllQuestions", v)}
+          label="Barcha savollarni o'ynash"
+          hint="Hech bir savol o'tkazib yuborilmaydi"
+        />
+        <Divider />
+        <CheckboxRow
+          checked={settings.falseStarts}
+          onChange={(v) => update("falseStarts", v)}
+          label="Falstartlar"
+          hint="Savol o'qilayotganda tugma bosish mumkin"
+        />
+        <Divider />
+        <CheckboxRow
+          checked={settings.finalRound}
+          onChange={(v) => update("finalRound", v)}
+          label="Final raundi"
+          hint="O'yin oxirida yakuniy davra o'tkaziladi"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// VAQT TABI KOMPONENTI
+// ============================================================
+function VaqtTab({ settings, update }) {
+  // Vaqt slayderlarining ro'yxati
+  const timeSliders = [
+    { key: "timeQuestionSelect",   label: "Savol tanlash",                       min: 5,  max: 120 },
+    { key: "timeTopicSelect",      label: "Mavzu tanlash (o'chirish)",            min: 5,  max: 120 },
+    { key: "timePassQuestion",     label: "Boshqa o'yinchini tanlash (o'tkazish)",min: 5,  max: 60  },
+    { key: "timePressButton",      label: "Tugmani bosish (javob chegarasi)",     min: 3,  max: 60  },
+    { key: "timeAnswerAfterPress", label: "Tugmani bosgandan keyin javob berish", min: 5,  max: 120 },
+    { key: "timeSpecialQuestion",  label: "Maxsus savolga javob berish",          min: 10, max: 180 },
+    { key: "timeAllAnswer",        label: "Barcha uchun savolga javob berish",    min: 10, max: 120 },
+    { key: "timeBidding",          label: "Badal tikish",                         min: 5,  max: 60  },
+    { key: "timeHostDecision",     label: "Boshlovchi qarorlari",                 min: 5,  max: 60  },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      {timeSliders.map((slider, idx) => (
+        <TimeSliderRow
+          key={slider.key}
+          label={slider.label}
+          value={settings[slider.key]}
+          min={slider.min}
+          max={slider.max}
+          onChange={(v) => update(slider.key, v)}
+          index={idx}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// VAQT SLAYDERI QATORI
+// ============================================================
+function TimeSliderRow({ label, value, min, max, onChange, index }) {
+  const percent = ((value - min) / (max - min)) * 100;
+
+  return (
+    <div
+      className="rounded-xl px-4 py-3"
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        animationDelay: `${index * 40}ms`,
+      }}
+    >
+      {/* Yorliq va joriy qiymat */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-white/70 text-xs font-medium">{label}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-yellow-400 font-bold text-sm tabular-nums">{value}</span>
+          <span className="text-white/30 text-xs">sek</span>
+        </div>
+      </div>
+
+      {/* Slayder */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="slider-custom"
+        style={{
+          background: `linear-gradient(to right,
+            #f59e0b 0%, #f59e0b ${percent}%,
+            rgba(255,255,255,0.12) ${percent}%,
+            rgba(255,255,255,0.12) 100%)`,
+        }}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// YORDAMCHI KOMPONENTLAR
+// ============================================================
+
+// Sozlama qatori (label + kontent)
+function SettingRow({ label, icon, hint, children }) {
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      {/* Yorliq */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-blue-400">{icon}</span>
+        <span className="text-white/80 text-sm font-semibold tracking-wide">{label}</span>
+        {hint && <span className="text-white/25 text-xs ml-1">— {hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Dropdown komponenti
+function Dropdown({ name, value, options, open, onToggle, onSelect, capitalize }) {
+  return (
+    <div className="relative w-full" data-dropdown>
+      {/* Asosiy tugma */}
+      <button
+        onClick={onToggle}
+        data-dropdown
+        className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm text-white font-medium transition-all duration-200"
+        style={{
+          background: open ? "rgba(37,99,235,0.25)" : "rgba(255,255,255,0.08)",
+          border: open ? "1px solid rgba(100,160,255,0.5)" : "1px solid rgba(255,255,255,0.12)",
+        }}
+      >
+        <span style={{ textTransform: capitalize ? "capitalize" : "none" }}>{value}</span>
+        <ChevronDown open={open} />
+      </button>
+
+      {/* Dropdown ro'yxati */}
+      {open && (
+        <div
+          className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl overflow-hidden"
+          style={{
+            background: "#0d1b4b",
+            border: "1px solid rgba(100,160,255,0.3)",
+            boxShadow: "0 16px 40px rgba(0,0,0,0.6)",
+          }}
+          data-dropdown
+        >
+          {options.map((opt) => (
+            <button
+              key={opt}
+              data-dropdown
+              onClick={() => onSelect(opt)}
+              className="w-full text-left px-4 py-2.5 text-sm transition-all duration-150"
+              style={{
+                color: opt === value ? "#fff" : "rgba(255,255,255,0.6)",
+                background: opt === value ? "rgba(37,99,235,0.3)" : "transparent",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+                textTransform: capitalize ? "capitalize" : "none",
+              }}
+              onMouseEnter={(e) => { if (opt !== value) e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+              onMouseLeave={(e) => { if (opt !== value) e.currentTarget.style.background = "transparent"; }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Chekbox qatori
+function CheckboxRow({ checked, onChange, label, hint }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer group">
+      {/* Custom chekbox */}
+      <div
+        onClick={() => onChange(!checked)}
+        className="flex-shrink-0 w-5 h-5 rounded mt-0.5 flex items-center justify-center transition-all duration-200"
+        style={{
+          background: checked ? "#2563eb" : "rgba(255,255,255,0.08)",
+          border: checked ? "1px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+          boxShadow: checked ? "0 0 10px rgba(37,99,235,0.5)" : "none",
+        }}
+      >
+        {checked && (
+          <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3">
+            <polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </div>
+
+      {/* Matn */}
+      <div>
+        <p className="text-white/80 text-sm font-medium group-hover:text-white transition-colors"
+           onClick={() => onChange(!checked)}>
+          {label}
+        </p>
+        {hint && <p className="text-white/30 text-xs mt-0.5">{hint}</p>}
+      </div>
+    </label>
+  );
+}
+
+// Ingichka ajratuvchi chiziq
+function Divider() {
+  return <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }} />;
+}
+
+// ============================================================
+// PASTKI TUGMA QISMI (Footer)
+// ============================================================
+function ModalFooter({ onCreate }) {
+  const [pressed, setPressed] = useState(false);
+
+  const handleClick = () => {
+    setPressed(true);
+    setTimeout(() => setPressed(false), 200);
+    onCreate?.();
+  };
+
+  return (
+    <div
+      className="flex-shrink-0 px-6 py-4 flex items-center justify-end"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      {/* YARATISH tugmasi — to'q sariq rang */}
+      <button
+        onClick={handleClick}
+        className="px-10 py-3 rounded-xl font-black text-sm tracking-widest uppercase transition-all duration-200"
+        style={{
+          background: pressed
+            ? "#d97706"
+            : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+          color: "#0a0f2e",
+          boxShadow: pressed
+            ? "0 2px 8px rgba(245,158,11,0.3)"
+            : "0 6px 20px rgba(245,158,11,0.45), 0 0 0 1px rgba(245,158,11,0.3)",
+          transform: pressed ? "scale(0.97)" : "scale(1)",
+          letterSpacing: "0.15em",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 28px rgba(245,158,11,0.6), 0 0 0 2px rgba(245,158,11,0.5)";
+          e.currentTarget.style.transform = "scale(1.03)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 6px 20px rgba(245,158,11,0.45), 0 0 0 1px rgba(245,158,11,0.3)";
+          e.currentTarget.style.transform = "scale(1)";
+        }}
+      >
+        ✦ YARATISH
+      </button>
+    </div>
+  );
+}
